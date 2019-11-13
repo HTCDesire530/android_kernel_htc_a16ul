@@ -220,12 +220,12 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
-		/* Backlight PWM */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,invert = <0>;		/* Disable invert */
-		qcom,src-sel = <4>;		/* DTEST1 */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,master-en = <1>;		/* Enable MPP */
+                qcom,mode = <4>; // ANALOG INPUT
+                qcom,pull = <5>; //No pull
+                qcom,vin-sel = <3>; // S4 1.8v
+                qcom,src-sel = <0>; //MPP Constant
+                qcom,ain-route = <1>; //AMUX6 for MPP 2
+                qcom,master-en = <1>; //Enable MPP
 	};
 
 	mpp@a200 { /* MPP 3 */

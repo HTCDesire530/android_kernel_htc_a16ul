@@ -122,7 +122,7 @@ static int panel_io_on(struct qpic_panel_io_desc *qpic_panel_io)
 		pr_err("%s request bl gpio failed\n", __func__);
 		goto power_on_error;
 	}
-	/* wait for 20 ms after enable gpio as suggested by hw */
+	
 	msleep(20);
 	return 0;
 power_on_error:
@@ -142,50 +142,50 @@ int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 	if (ret)
 		return ret;
 	qpic_send_pkt(OP_SOFT_RESET, NULL, 0);
-	/* wait for 120 ms after reset as panel spec suggests */
+	
 	msleep(120);
 	qpic_send_pkt(OP_SET_DISPLAY_OFF, NULL, 0);
-	/* wait for 20 ms after disply off */
+	
 	msleep(20);
 
-	/* set memory access control */
+	
 	param[0] = 0x48;
 	qpic_send_pkt(OP_SET_ADDRESS_MODE, param, 1);
-	/* wait for 20 ms after command sent as panel spec suggests */
+	
 	msleep(20);
 
 	param[0] = 0x66;
 	qpic_send_pkt(OP_SET_PIXEL_FORMAT, param, 1);
-	/* wait for 20 ms after command sent as panel spec suggests */
+	
 	msleep(20);
 
-	/* set interface */
+	
 	param[0] = 1;
 	param[1] = 0;
 	param[2] = 0;
 	qpic_send_pkt(OP_ILI9341_INTERFACE_CONTROL, param, 3);
-	/* wait for 20 ms after command sent */
+	
 	msleep(20);
 
-	/* exit sleep mode */
+	
 	qpic_send_pkt(OP_EXIT_SLEEP_MODE, NULL, 0);
-	/* wait for 20 ms after command sent as panel spec suggests */
+	
 	msleep(20);
 
-	/* normal mode */
+	
 	qpic_send_pkt(OP_ENTER_NORMAL_MODE, NULL, 0);
-	/* wait for 20 ms after command sent as panel spec suggests */
+	
 	msleep(20);
 
-	/* display on */
+	
 	qpic_send_pkt(OP_SET_DISPLAY_ON, NULL, 0);
-	/* wait for 20 ms after command sent as panel spec suggests */
+	
 	msleep(20);
 
 	param[0] = 0;
 	qpic_send_pkt(OP_ILI9341_TEARING_EFFECT_LINE_ON, param, 1);
 
-	/* test */
+	
 	param[0] = qpic_read_data(OP_GET_PIXEL_FORMAT, 1);
 	pr_debug("Pixel format =%x", param[0]);
 

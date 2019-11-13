@@ -18,6 +18,7 @@ obj-$(CONFIG_MSM_MEMORY_DUMP_V2) += memory_dump_v2.o
 obj-$(CONFIG_MSM_DDR_HEALTH) += ddr-health.o
 obj-$(CONFIG_MSM_MPM_OF) += mpm-of.o
 obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd.o
+obj-$(CONFIG_MSM_RPM_SMD) += rpm_stats_ver.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd-debug.o
 endif
@@ -31,7 +32,7 @@ obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 
 obj-$(CONFIG_MSM_CACHE_DUMP) += cache_dump.o
 obj-$(CONFIG_MSM_CPUSS_DUMP) += cpuss_dump.o
-obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o
+obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o scm-htc.o
 
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o smd_private.o smd_init_dt.o smsm_debug.o
 obj-$(CONFIG_MSM_SMEM) += smem.o smem_debug.o
@@ -79,3 +80,6 @@ obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR) += system_health_monitor.o
 obj-$(CONFIG_MSM_RTB) += msm_rtb-hotplug.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
 obj-$(CONFIG_MSM_PACMAN)        += msm_pacman.o
+
+# For HTC Implementation of Power Control of LCM power source
+obj-y += display/

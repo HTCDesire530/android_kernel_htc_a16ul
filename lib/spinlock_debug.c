@@ -50,6 +50,30 @@ void __rwlock_init(rwlock_t *lock, const char *name,
 
 EXPORT_SYMBOL(__rwlock_init);
 
+static int spin_dump_panic_call(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+#if defined(CONFIG_HTC_DEBUG_WATCHDOG)
+	void msm_watchdog_bark(void);
+	static int barked = 0;
+	if (!barked) {
+		barked = 1;
+
+		pr_info("%s: Force Watchdog bark ...\r\n", __func__);
+		msm_watchdog_bark();
+
+		mdelay(10000);
+		pr_info("%s: Force Watchdog bark does not work, "
+				"falling back to normal process.\r\n", __func__);
+	}
+#endif
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_block = {
+	.notifier_call	= spin_dump_panic_call,
+};
+
 static void spin_dump(raw_spinlock_t *lock, const char *msg)
 {
 	struct task_struct *owner = NULL;
@@ -65,11 +89,15 @@ static void spin_dump(raw_spinlock_t *lock, const char *msg)
 		owner ? owner->comm : "<none>",
 		owner ? task_pid_nr(owner) : -1,
 		lock->owner_cpu);
-#ifdef CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG
+#if defined(CONFIG_PANIC_ON_DATA_CORRUPTION)
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_block);
+	BUG();
+#elif defined(CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG)
 	msm_trigger_wdog_bite();
 #elif defined(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG)
 	BUG();
 #endif
+
 	dump_stack();
 }
 

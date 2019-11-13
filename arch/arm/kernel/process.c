@@ -292,8 +292,12 @@ void machine_power_off(void)
  */
 void machine_restart(char *cmd)
 {
+	extern char *saved_command_line;
+
 	preempt_disable();
 	smp_send_stop();
+
+	pr_emerg("Kernel command line: %s\n", saved_command_line);
 
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */

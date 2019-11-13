@@ -175,4 +175,4 @@
 #define DSI_VIDEO_MODE_EN	BIT(1)
 #define DSI_CMD_MODE_EN		BIT(2)
 
-#endif /* DSI_HOST_V2_H */
+#endif 

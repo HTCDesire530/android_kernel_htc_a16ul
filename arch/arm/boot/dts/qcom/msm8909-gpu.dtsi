@@ -122,7 +122,6 @@
 				qcom,bus-freq = <0>;
 			};
 		};
-
 		qcom,gpu-speed-config@0 {
 			compatible = "gpu-speed-config@0";
 			/* Power levels */

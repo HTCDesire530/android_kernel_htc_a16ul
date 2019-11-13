@@ -21,20 +21,12 @@
 
 #define LCDC_INTERNAL_BUFFER_SIZE   30
 
-/**
-   Macros for coding MIPI commands
-*/
 #define INV_SIZE             0xFFFF
-/* Size of argument to MIPI command is variable */
 #define OP_SIZE_PAIR(op, size)    ((op<<16) | size)
-/* MIPI {command, argument size} tuple */
 #define LCDC_EXTRACT_OP_SIZE(op_identifier)    ((op_identifier&0xFFFF))
-/* extract size from command identifier */
 #define LCDC_EXTRACT_OP_CMD(op_identifier)    (((op_identifier>>16)&0xFFFF))
-/* extract command id from command identifier */
 
 
-/* MIPI standard efinitions */
 #define LCDC_ADDRESS_MODE_ORDER_BOTTOM_TO_TOP                0x80
 #define LCDC_ADDRESS_MODE_ORDER_RIGHT_TO_LEFT                0x40
 #define LCDC_ADDRESS_MODE_ORDER_REVERSE                      0x20
@@ -64,9 +56,6 @@
 #define LCDC_DISPLAY_MODE_INVERSION_ON       0x20
 #define LCDC_DISPLAY_MODE_GAMMA_MASK         0x07
 
-/**
- * LDCc MIPI Type B supported commands
- */
 #define	OP_ENTER_IDLE_MODE      0x39
 #define	OP_ENTER_INVERT_MODE    0x21
 #define	OP_ENTER_NORMAL_MODE    0x13
@@ -75,37 +64,34 @@
 #define	OP_EXIT_INVERT_MODE     0x20
 #define	OP_EXIT_SLEEP_MODE      0x11
 #define	OP_EXIT_IDLE_MODE       0x38
-#define	OP_GET_ADDRESS_MODE     0x0B /* size 1 */
-#define	OP_GET_BLUE_CHANNEL     0x08 /* size 1 */
-#define	OP_GET_DIAGNOSTIC       0x0F /* size 2 */
-#define	OP_GET_DISPLAY_MODE     0x0D /* size 1 */
-#define	OP_GET_GREEN_CHANNEL    0x07 /* size 1 */
-#define	OP_GET_PIXEL_FORMAT     0x0C /* size 1 */
-#define	OP_GET_POWER_MODE       0x0A /* size 1 */
-#define	OP_GET_RED_CHANNEL      0x06 /* size 1 */
-#define	OP_GET_SCANLINE         0x45 /* size 1 */
-#define	OP_GET_SIGNAL_MODE      0x0E /* size 1 */
+#define	OP_GET_ADDRESS_MODE     0x0B 
+#define	OP_GET_BLUE_CHANNEL     0x08 
+#define	OP_GET_DIAGNOSTIC       0x0F 
+#define	OP_GET_DISPLAY_MODE     0x0D 
+#define	OP_GET_GREEN_CHANNEL    0x07 
+#define	OP_GET_PIXEL_FORMAT     0x0C 
+#define	OP_GET_POWER_MODE       0x0A 
+#define	OP_GET_RED_CHANNEL      0x06 
+#define	OP_GET_SCANLINE         0x45 
+#define	OP_GET_SIGNAL_MODE      0x0E 
 #define	OP_NOP                  0x00
-#define	OP_READ_DDB_CONTINUE    0xA8 /* size not fixed */
-#define	OP_READ_DDB_START       0xA1 /* size not fixed */
-#define	OP_READ_MEMORY_CONTINUE 0x3E /* size not fixed */
-#define	OP_READ_MEMORY_START    0x2E /* size not fixed */
-#define	OP_SET_ADDRESS_MODE     0x36 /* size 1 */
-#define	OP_SET_COLUMN_ADDRESS   0x2A /* size 4 */
+#define	OP_READ_DDB_CONTINUE    0xA8 
+#define	OP_READ_DDB_START       0xA1 
+#define	OP_READ_MEMORY_CONTINUE 0x3E 
+#define	OP_READ_MEMORY_START    0x2E 
+#define	OP_SET_ADDRESS_MODE     0x36 
+#define	OP_SET_COLUMN_ADDRESS   0x2A 
 #define	OP_SET_DISPLAY_OFF      0x28
 #define	OP_SET_DISPLAY_ON       0x29
-#define	OP_SET_GAMMA_CURVE      0x26 /* size 1 */
-#define	OP_SET_PAGE_ADDRESS     0x2B /* size 4 */
-#define	OP_SET_PARTIAL_COLUMNS  0x31 /* size 4 */
-#define	OP_SET_PARTIAL_ROWS     0x30 /* size 4 */
-#define	OP_SET_PIXEL_FORMAT     0x3A /* size 1 */
+#define	OP_SET_GAMMA_CURVE      0x26 
+#define	OP_SET_PAGE_ADDRESS     0x2B 
+#define	OP_SET_PARTIAL_COLUMNS  0x31 
+#define	OP_SET_PARTIAL_ROWS     0x30 
+#define	OP_SET_PIXEL_FORMAT     0x3A 
 #define	OP_SOFT_RESET           0x01
-#define	OP_WRITE_MEMORY_CONTINUE  0x3C /* size not fixed */
-#define	OP_WRITE_MEMORY_START   0x2C /* size not fixed */
+#define	OP_WRITE_MEMORY_CONTINUE  0x3C 
+#define	OP_WRITE_MEMORY_START   0x2C 
 
-/**
- * ILI9341 commands
- */
 #define OP_ILI9341_INTERFACE_CONTROL	0xf6
 #define OP_ILI9341_TEARING_EFFECT_LINE_ON	0x35
 
@@ -126,4 +112,4 @@ u32 qpic_panel_get_cmd(u32 command, u32 size);
 int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io);
 void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io);
 
-#endif /* MDSS_QPIC_PANEL_H */
+#endif 

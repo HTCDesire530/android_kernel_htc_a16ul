@@ -132,7 +132,7 @@ static int __dump_mdp(struct seq_file *s, struct mdss_data_type *mdata)
 
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
-		/* ignore slave ctl in split display case */
+		
 		if (ctl->num == ignore_ndx)
 			continue;
 		if (ctl->mixer_right && (ctl->mixer_right->ctl != ctl))

@@ -18,10 +18,6 @@
 #include "mdss_mdp_rotator.h"
 #include "mdss_panel.h"
 
-/*
- * if BWC enabled and format is H1V2 or 420, do not use site C or I.
- * Hence, set the bits 29:26 in format register, as zero.
- */
 #define BWC_FMT_MASK	0xC3FFFFFF
 #define VBIF_WR_LIM_CONF    0xC0
 #define MDSS_DEFAULT_OT_SETTING    0x10
@@ -169,9 +165,9 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (ctx->type != MDSS_MDP_WRITEBACK_TYPE_ROTATOR && fmt->is_yuv) {
 		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_WB, ctx->wb_num,
 				   MDSS_MDP_CSC_RGB2YUV);
-		opmode |= (1 << 8) |	/* CSC_EN */
-			  (0 << 9) |	/* SRC_DATA=RGB */
-			  (1 << 10);	/* DST_DATA=YCBCR */
+		opmode |= (1 << 8) |	
+			  (0 << 9) |	
+			  (1 << 10);	
 
 		switch (chroma_samp) {
 		case MDSS_MDP_CHROMA_RGB:
@@ -201,9 +197,9 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	dst_format &= BWC_FMT_MASK;
 
 	if (fmt->bits[C3_ALPHA] || fmt->alpha_enable) {
-		dst_format |= BIT(8); /* DSTC3_EN */
+		dst_format |= BIT(8); 
 		if (!fmt->alpha_enable)
-			dst_format |= BIT(14); /* DST_ALPHA_X */
+			dst_format |= BIT(14); 
 	}
 
 	mdata = mdss_mdp_get_mdata();
@@ -257,7 +253,7 @@ static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 	if (!ctx)
 		return -ENODEV;
 
-	if (ctx->initialized && !ctl->shared_lock) /* already set */
+	if (ctx->initialized && !ctl->shared_lock) 
 		return 0;
 
 	pr_debug("wfd setup ctl=%d\n", ctl->num);
@@ -309,9 +305,9 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 	pr_debug("rot setup wb_num=%d\n", ctx->wb_num);
 
-	ctx->opmode = BIT(6); /* ROT EN */
+	ctx->opmode = BIT(6); 
 	if (ctl->mdata->rot_block_size == 128)
-		ctx->opmode |= BIT(4); /* block size 128 */
+		ctx->opmode |= BIT(4); 
 
 	ctx->bwc_mode = rot->bwc_mode;
 	ctx->opmode |= ctx->bwc_mode;
@@ -340,7 +336,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 		format = rot->format;
 
 	if (ctx->rot90)
-		ctx->opmode |= BIT(5); /* ROT 90 */
+		ctx->opmode |= BIT(5); 
 
 	return mdss_mdp_writeback_format_setup(ctx, format);
 }
@@ -465,7 +461,7 @@ static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
 	if (!mixer)
 		return traffic_shaper_enabled;
 
-	/* currently only for rotator pipes */
+	
 	if (!mixer->rotator_mode)
 		return traffic_shaper_enabled;
 
@@ -488,16 +484,8 @@ static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
 			ctl->traffic_shaper_mdp_clk = clk_rate;
 			bw_rate = perf.bw_overlap;
 
-			/*
-			 * Bandwidth vote accounts for both read and write
-			 * rotator, divide by 2 to get only the write bandwidth.
-			 */
 			do_div(bw_rate, 2);
 
-			/*
-			 * Calculating bytes per clock in 4.4 form
-			 * allowing up to 1/16 granularity.
-			 */
 			do_div(bw_rate,
 				(clk_rate >>
 				 MDSS_MDP_REG_TRAFFIC_SHAPER_FIXPOINT_FACTOR));
@@ -571,7 +559,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		rc = 0;
 	}
 
-	/* once operation is done, disable traffic shaper */
+	
 	if (ctl->traffic_shaper_enabled)
 		mdss_mdp_traffic_shaper(ctl, ctx, false);
 
@@ -579,7 +567,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_bus_bandwidth_ctrl(false);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
-	/* Set flag to release Controller Bandwidth */
+	
 	ctl->perf_release_ctl_bw = true;
 
 	ctx->comp_cnt--;
@@ -650,7 +638,7 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		   mdss_mdp_writeback_intr_done, ctl);
 
 	flush_bits |= ctl->flush_reg_data;
-	flush_bits |= BIT(16); /* WB */
+	flush_bits |= BIT(16); 
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS, ctl->is_secure);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
 
@@ -696,7 +684,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 	ctl->priv_data = ctx;
-	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
+	ctx->wb_num = ctl->num;	
 	ctx->base = ctl->wb_base;
 	ctx->initialized = false;
 	init_completion(&ctx->wb_comp);
@@ -705,10 +693,10 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 
 	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
 		ctl->prepare_fnc = mdss_mdp_writeback_prepare_rot;
-	else {  /* wfd or line mode */
+	else {  
 		ctl->prepare_fnc = mdss_mdp_writeback_prepare_wfd;
 
-		/* WB2 Intr Enable is BIT(2) in MDSS 1.8.0 */
+		
 		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_108) {
 			ctx->intr_type = MDSS_MDP_IRQ_WB_ROT_COMP;
 			ctx->intf_num = 2;

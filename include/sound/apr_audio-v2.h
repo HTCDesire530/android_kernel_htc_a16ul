@@ -7725,6 +7725,17 @@ struct afe_svc_cmd_set_clip_bank_selection {
 #define US_RAW_SYNC_FORMAT      0x0001272F
 #define US_GES_SYNC_FORMAT      0x00012730
 
+//HTC_AUD ++
+#define HTC_COPP_TOPOLOGY				0x10000001
+#define HTC_POPP_TOPOLOGY				0x10000002
+
+struct asm_params {
+	struct apr_hdr	hdr;
+	struct asm_stream_cmd_set_pp_params_v2 param;
+	struct asm_stream_param_data_v2 data;
+} __packed;
+//HTC_AUD --
+
 #define AFE_MODULE_GROUP_DEVICE	0x00010254
 #define AFE_PARAM_ID_GROUP_DEVICE_CFG	0x00010255
 #define AFE_PARAM_ID_GROUP_DEVICE_ENABLE 0x00010256

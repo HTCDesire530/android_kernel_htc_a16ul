@@ -467,6 +467,10 @@ config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
 
+config HTC_SCM
+	bool "HTC Secure Channel Manager (SCM) features support"
+	depends on MSM_SCM
+	default y
 config MAXIMUM_CURRENT_THROTTLING
 	tristate "CPU current throttling driver"
 	help
@@ -570,6 +574,25 @@ config MSM_PERFORMANCE_HOTPLUG_ON
 	  capability of msm_performance driver. Setting this flag to false will
           compile out the nodes needed for core-control functionality through
           msm_performance.
+
+config HTC_DEBUG_RIL_PCN0002_DUMP_STACK
+       bool "Dump call stack when modem crash"
+       help
+         Say Y here if you want dump call stack when modem crash
+
+config HTC_DEBUG_RIL_PCN0005_HTC_DUMP_SMSM_LOG
+	tristate "HTC_DEBUG_RIL_PCN0005_HTC_DUMP_SMSM_LOG"
+	default n
+	depends on MSM_SMD
+	---help---
+	  Dump SMSM log message
+
+config HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	tristate "HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG"
+	default n
+	depends on MSM_BAM_DMUX
+	---help---
+	  Dump BAM DMUX log message
 
 source "drivers/soc/qcom/memshare/Kconfig"
 

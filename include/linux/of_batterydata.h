@@ -35,6 +35,9 @@
 int of_batterydata_read_data(struct device_node *container_node,
 				struct bms_battery_data *batt_data,
 				int batt_id_uv);
+int of_batterydata_read_data_by_id_result(struct device_node *container_node,
+				struct bms_battery_data *batt_data,
+				int id_result);
 /**
  * of_batterydata_get_best_profile() - Find matching battery data device node
  * @batterydata_container_node: pointer to the battery-data container device
@@ -61,6 +64,12 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 static inline struct device_node *of_batterydata_get_best_profile(
 		struct device_node *batterydata_container_node,
 		struct device_node *best_node, const char *psy_name)
+{
+	return -ENXIO;
+}
+static inline int of_batterydata_read_data_by_id_result(struct device_node *container_node,
+				struct bms_battery_data *batt_data,
+				int id_result);
 {
 	return -ENXIO;
 }

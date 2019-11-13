@@ -38,6 +38,55 @@
 
 #include "bam_dmux_private.h"
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0005_HTC_DUMP_SMSM_LOG
+extern void msm_smsm_dumplog(void);
+extern void smsm_events_print(void);
+#endif
+
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+static int fp_rx_switch_to_interrupt_mode = 0;
+static int fp_reconnect_to_bam = 0;
+static int fp_disconnect_to_bam = 0;
+void msm_bam_dmux_dumplog(void);
+void bam_dmux_events_print(void);
+void bam_dmux_dbg_log_event(const char * event, ...);
+static inline void bam_dmux_dump_debug_stats(void);
+static inline void bam_dmux_dump_debug_tbl(void);
+static inline void bam_dmux_dump_debug_ul_pkt_cnt(void);
+
+/* Maximum debug message length */
+#define DBG_MSG_LEN   100UL
+
+/* Maximum number of messages */
+#define DBG_MAX_MSG   256UL
+
+#define TIME_BUF_LEN  20
+
+static int bam_dmux_htc_debug_enable = 1;
+static int bam_dmux_htc_debug_dump = 1;
+static int bam_dmux_htc_debug_dump_lines = DBG_MAX_MSG;
+static int bam_dmux_htc_debug_print = 0;
+module_param_named(bam_dmux_htc_debug_enable, bam_dmux_htc_debug_enable,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(bam_dmux_htc_debug_dump, bam_dmux_htc_debug_dump,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(bam_dmux_htc_debug_dump_lines, bam_dmux_htc_debug_dump_lines,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(bam_dmux_htc_debug_print, bam_dmux_htc_debug_print,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static struct {
+	char     (buf[DBG_MAX_MSG])[DBG_MSG_LEN];   /* buffer */
+	unsigned idx;   /* index */
+	rwlock_t lck;   /* lock */
+} dbg_bam_dmux = {
+	.idx = 0,
+	.lck = __RW_LOCK_UNLOCKED(lck)
+};
+#endif//CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+/* -SSD_RIL */
+
 #define BAM_CH_LOCAL_OPEN       0x1
 #define BAM_CH_REMOTE_OPEN      0x2
 #define BAM_CH_IN_RESET         0x4
@@ -51,16 +100,22 @@
 static int msm_bam_dmux_debug_enable;
 module_param_named(debug_enable, msm_bam_dmux_debug_enable,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
-static int POLLING_MIN_SLEEP = 2950;
+/*++ 2014/08/15, USB Team, PCN00039 ++*/
+int POLLING_MIN_SLEEP = 2950;
+/*-- 2014/08/15, USB Team, PCN00039 --*/
 module_param_named(min_sleep, POLLING_MIN_SLEEP,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
-static int POLLING_MAX_SLEEP = 3050;
+/*++ 2014/08/15, USB Team, PCN00039 ++*/
+int POLLING_MAX_SLEEP = 3050;
+/*-- 2014/08/15, USB Team, PCN00039 --*/
 module_param_named(max_sleep, POLLING_MAX_SLEEP,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int POLLING_INACTIVITY = 1;
 module_param_named(inactivity, POLLING_INACTIVITY,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
-static int bam_adaptive_timer_enabled;
+/*++ 2014/08/15, USB Team, PCN00039 ++*/
+int bam_adaptive_timer_enabled;
+/*-- 2014/08/15, USB Team, PCN00039 --*/
 module_param_named(adaptive_timer_enabled,
 			bam_adaptive_timer_enabled,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -333,6 +388,46 @@ static void *bam_ipc_log_txt;
  * D: 1 = Disconnect ACK active
  */
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+#define BAM_DMUX_LOG(fmt, args...) \
+do { \
+	if (bam_ipc_log_txt) { \
+		ipc_log_string(bam_ipc_log_txt, \
+		"<DMUX> %c%c%c%c %c%c%c%c%d %d %d %d " fmt, \
+		a2_pc_disabled ? 'D' : 'd', \
+		in_global_reset ? 'R' : 'r', \
+		bam_dmux_power_state ? 'P' : 'p', \
+		bam_connection_is_active ? 'A' : 'a', \
+		bam_dmux_uplink_vote ? 'V' : 'v', \
+		bam_is_connected ?  'U' : 'u', \
+		wait_for_ack ? 'W' : 'w', \
+		ul_wakeup_ack_completion.done ? 'A' : 'a', \
+		atomic_read(&ul_ondemand_vote), \
+		fp_rx_switch_to_interrupt_mode, \
+		fp_reconnect_to_bam, \
+		fp_disconnect_to_bam, \
+		args); \
+	} \
+	if (bam_dmux_htc_debug_enable) { \
+		bam_dmux_dbg_log_event( \
+		"<DMUX> %c%c%c%c %c%c%c%c%d %d %d %d " fmt, \
+		a2_pc_disabled ? 'D' : 'd', \
+		in_global_reset ? 'R' : 'r', \
+		bam_dmux_power_state ? 'P' : 'p', \
+		bam_connection_is_active ? 'A' : 'a', \
+		bam_dmux_uplink_vote ? 'V' : 'v', \
+		bam_is_connected ?  'U' : 'u', \
+		wait_for_ack ? 'W' : 'w', \
+		ul_wakeup_ack_completion.done ? 'A' : 'a', \
+		atomic_read(&ul_ondemand_vote), \
+		fp_rx_switch_to_interrupt_mode, \
+		fp_reconnect_to_bam, \
+		fp_disconnect_to_bam, \
+		args); \
+	} \
+} while (0)
+#else
 #define BAM_DMUX_LOG(fmt, args...) \
 do { \
 	if (bam_ipc_log_txt) { \
@@ -350,12 +445,70 @@ do { \
 		args); \
 	} \
 } while (0)
+#endif//CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+/* -SSD_RIL */
 
 #define DMUX_LOG_KERR(fmt, args...) \
 do { \
 	BAM_DMUX_LOG(fmt, args); \
 	pr_err(fmt, args); \
 } while (0)
+
+/* +SSD_RIL*/
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+static inline void bam_dmux_dump_debug_stats()
+{
+	pr_info("skb read cnt:    %u\n"
+		"skb write cnt:   %u\n"
+		"skb copy cnt:    %u\n"
+		"skb copy bytes:  %u\n"
+		"sps tx failures: %u\n"
+		"sps tx stalls:   %u\n"
+		"rx queue len:    %d\n"
+		"a2 ack out cnt:  %d\n"
+		"a2 ack in cnt:   %d\n"
+		"a2 pwr cntl in:  %d\n",
+		bam_dmux_read_cnt,
+		bam_dmux_write_cnt,
+		bam_dmux_write_cpy_cnt,
+		bam_dmux_write_cpy_bytes,
+		bam_dmux_tx_sps_failure_cnt,
+		bam_dmux_tx_stall_cnt,
+		bam_rx_pool_len,
+		atomic_read(&bam_dmux_ack_out_cnt),
+		atomic_read(&bam_dmux_ack_in_cnt),
+		atomic_read(&bam_dmux_a2_pwr_cntl_in_cnt)
+		);
+
+}
+
+static inline void bam_dmux_dump_debug_tbl()
+{
+	int i = 0;
+
+	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		pr_info("ch%02d  local open=%s  remote open=%s\n",
+			i, bam_ch_is_local_open(i) ? "Y" : "N",
+			bam_ch_is_remote_open(i) ? "Y" : "N");
+	}
+}
+
+static inline void bam_dmux_dump_debug_ul_pkt_cnt()
+{
+	struct list_head *p;
+	unsigned long flags;
+	int n = 0;
+
+	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
+	__list_for_each(p, &bam_tx_pool) {
+		++n;
+	}
+	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
+
+	pr_info("Number of UL packets in flight: %d\n", n);
+}
+#endif//CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+/* -SSD_RIL */
 
 static inline void set_tx_timestamp(struct tx_pkt_info *pkt)
 {
@@ -653,7 +806,17 @@ static inline void handle_bam_mux_cmd_open(struct bam_mux_hdr *rx_hdr)
 	bam_ch[rx_hdr->ch_id].status |= BAM_CH_REMOTE_OPEN;
 	bam_ch[rx_hdr->ch_id].num_tx_pkts = 0;
 	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	BAM_DMUX_LOG("%s: platform_device_add+\n", __func__);
+#endif
+        /* -SSD_RIL */
 	ret = platform_device_add(bam_ch[rx_hdr->ch_id].pdev);
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	BAM_DMUX_LOG("%s: platform_device_add-\n", __func__);
+#endif
+        /* -SSD_RIL */
 	if (ret)
 		pr_err("%s: platform_device_add() error: %d\n",
 				__func__, ret);
@@ -1258,6 +1421,12 @@ static void rx_switch_to_interrupt_mode(void)
 	struct rx_pkt_info *info;
 	int ret;
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_rx_switch_to_interrupt_mode = 0;
+#endif
+/* -SSD_RIL */
+
 	/*
 	 * Attempt to enable interrupts - if this fails,
 	 * continue polling and we will retry later.
@@ -1268,12 +1437,24 @@ static void rx_switch_to_interrupt_mode(void)
 		goto fail;
 	}
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_rx_switch_to_interrupt_mode = 1;
+#endif
+/* -SSD_RIL */
+
 	rx_register_event.options = SPS_O_EOT;
 	ret = bam_ops->sps_register_event_ptr(bam_rx_pipe, &rx_register_event);
 	if (ret) {
 		pr_err("%s: sps_register_event() failed %d\n", __func__, ret);
 		goto fail;
 	}
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_rx_switch_to_interrupt_mode = 2;
+#endif
+/* -SSD_RIL */
 
 	cur_rx_conn.options = SPS_O_AUTO_ENABLE |
 		SPS_O_EOT | SPS_O_ACK_TRANSFERS;
@@ -1282,9 +1463,29 @@ static void rx_switch_to_interrupt_mode(void)
 		pr_err("%s: sps_set_config() failed %d\n", __func__, ret);
 		goto fail;
 	}
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_rx_switch_to_interrupt_mode = 3;
+#endif
+/* -SSD_RIL */
+
 	polling_mode = 0;
 	complete_all(&shutdown_completion);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	BAM_DMUX_LOG("%s complete shutdown_completion d=[%u]\n", __func__, shutdown_completion.done);
+	fp_rx_switch_to_interrupt_mode = 4;
+#endif
+/* -SSD_RIL */
+
 	release_wakelock();
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_rx_switch_to_interrupt_mode = 5;
+#endif
+/* -SSD_RIL */
 
 	/* handle any rx packets before interrupt was enabled */
 	while (bam_connection_is_active && !polling_mode) {
@@ -1524,6 +1725,11 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 				break;
 			}
 			INIT_COMPLETION(shutdown_completion);
+                        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+			BAM_DMUX_LOG("%s init complete shutdown_completion d=[0]\n", __func__);
+#endif
+                        /* -SSD_RIL */
 			grab_wakelock();
 			polling_mode = 1;
 			/*
@@ -1863,6 +2069,39 @@ static int ssrestart_check(void)
 	DMUX_LOG_KERR(
 		"%s: fatal modem interaction: BAM DMUX disabled for SSR\n",
 								__func__);
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	pr_err("<DMUX> %c%c%c%c %c%c%c%c%d %d %d %d %s: Record BAM state before SSR\n" ,
+		a2_pc_disabled ? 'D' : 'd',
+		in_global_reset ? 'R' : 'r',
+		bam_dmux_power_state ? 'P' : 'p',
+		bam_connection_is_active ? 'A' : 'a',
+		bam_dmux_uplink_vote ? 'V' : 'v',
+		bam_is_connected ?  'U' : 'u',
+		wait_for_ack ? 'W' : 'w',
+		ul_wakeup_ack_completion.done ? 'A' : 'a',
+		atomic_read(&ul_ondemand_vote),
+		fp_rx_switch_to_interrupt_mode,
+		fp_reconnect_to_bam,
+		fp_disconnect_to_bam,
+		__func__);
+#endif//CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0005_HTC_DUMP_SMSM_LOG
+	smsm_events_print();
+#endif
+
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	bam_dmux_events_print();
+	pr_info("### Show BAM DMUX stats Start ###\n");
+	bam_dmux_dump_debug_stats();
+	bam_dmux_dump_debug_tbl();
+	bam_dmux_dump_debug_ul_pkt_cnt();
+	pr_info("### Show BAM DMUX stats end ###\n");
+#endif
+/* -SSD_RIL */
+
 	in_global_reset = 1;
 	ret = subsystem_restart("modem");
 	if (ret == -ENODEV)
@@ -1983,7 +2222,18 @@ static void reconnect_to_bam(void)
 
 	in_global_reset = 0;
 	in_ssr = 0;
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 0;
+#endif
+/* -SSD_RIL */
 	vote_dfab();
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 1;
+#endif
+/* -SSD_RIL */
 
 	if (ssr_skipped_disconnect) {
 		/* delayed to here to prevent bus stall */
@@ -1992,37 +2242,98 @@ static void reconnect_to_bam(void)
 		memset(rx_desc_mem_buf.base, 0, rx_desc_mem_buf.size);
 		memset(tx_desc_mem_buf.base, 0, tx_desc_mem_buf.size);
 	}
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 2;
+#endif
+/* -SSD_RIL */
+
 	ssr_skipped_disconnect = 0;
 	i = bam_ops->sps_device_reset_ptr(a2_device_handle);
 	if (i)
 		pr_err("%s: device reset failed rc = %d\n", __func__,
 								i);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 3;
+#endif
+/* -SSD_RIL */
+
 	i = bam_ops->sps_connect_ptr(bam_tx_pipe, &tx_connection);
 	if (i)
 		pr_err("%s: tx connection failed rc = %d\n", __func__,
 								i);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 4;
+#endif
+/* -SSD_RIL */
+
 	i = bam_ops->sps_connect_ptr(bam_rx_pipe, &rx_connection);
 	if (i)
 		pr_err("%s: rx connection failed rc = %d\n", __func__,
 								i);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 5;
+#endif
+/* -SSD_RIL */
+
 	i = bam_ops->sps_register_event_ptr(bam_tx_pipe,
 			&tx_register_event);
 	if (i)
 		pr_err("%s: tx event reg failed rc = %d\n", __func__,
 								i);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 6;
+#endif
+/* -SSD_RIL */
+
 	i = bam_ops->sps_register_event_ptr(bam_rx_pipe,
 			&rx_register_event);
 	if (i)
 		pr_err("%s: rx event reg failed rc = %d\n", __func__,
 									i);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 7;
+#endif
+/* -SSD_RIL */
+
 	bam_connection_is_active = 1;
 
 	if (polling_mode)
 		rx_switch_to_interrupt_mode();
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 8;
+#endif
+/* -SSD_RIL */
+
 	toggle_apps_ack();
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 9;
+#endif
+/* -SSD_RIL */
 	complete_all(&bam_connection_completion);
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	BAM_DMUX_LOG("%s complete bam_connection_completion\n", __func__);
+	fp_reconnect_to_bam = 10;
+#endif
+/* -SSD_RIL */
 	queue_rx();
+
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_reconnect_to_bam = 11;
+#endif
+/* -SSD_RIL */
 }
 
 static void disconnect_to_bam(void)
@@ -2032,10 +2343,25 @@ static void disconnect_to_bam(void)
 	unsigned long flags;
 	unsigned long time_remaining;
 
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 0;
+#endif
+        /* -SSD_RIL */
 	if (!in_global_reset) {
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		BAM_DMUX_LOG("%s wait shutdown_completion+, d=[%u]\n", __func__, shutdown_completion.done);
+#endif
+                /* -SSD_RIL */
 		time_remaining = wait_for_completion_timeout(
 				&shutdown_completion,
 				msecs_to_jiffies(SHUTDOWN_TIMEOUT_MS));
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		BAM_DMUX_LOG("%s wait shutdown_completion-[%lu], d=[%u]\n", __func__, time_remaining, shutdown_completion.done);
+#endif
+                /* -SSD_RIL */
 		if (time_remaining == 0) {
 			DMUX_LOG_KERR("%s: shutdown completion timed out\n",
 					__func__);
@@ -2043,6 +2369,12 @@ static void disconnect_to_bam(void)
 			ssrestart_check();
 		}
 	}
+
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 1;
+#endif
+        /* -SSD_RIL */
 
 	bam_connection_is_active = 0;
 
@@ -2052,26 +2384,64 @@ static void disconnect_to_bam(void)
 		BAM_DMUX_LOG("%s: UL active - forcing powerdown\n", __func__);
 		ul_powerdown();
 	}
+
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 2;
+#endif
+        /* -SSD_RIL */
+
 	write_unlock_irqrestore(&ul_wakeup_lock, flags);
 	ul_powerdown_finish();
+
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 3;
+#endif
+        /* -SSD_RIL */
 
 	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
 
 	/* in_ssr documentation/assumptions found in restart_notifier_cb */
 	if (likely(!in_ssr)) {
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		fp_disconnect_to_bam = 4;
+#endif
+                /* -SSD_RIL */
 		BAM_DMUX_LOG("%s: disconnect tx\n", __func__);
 		bam_ops->sps_disconnect_ptr(bam_tx_pipe);
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		fp_disconnect_to_bam = 5;
+#endif
+                /* -SSD_RIL */
 		BAM_DMUX_LOG("%s: disconnect rx\n", __func__);
 		bam_ops->sps_disconnect_ptr(bam_rx_pipe);
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		fp_disconnect_to_bam = 6;
+#endif
+                /* -SSD_RIL */
 		memset(rx_desc_mem_buf.base, 0, rx_desc_mem_buf.size);
 		memset(tx_desc_mem_buf.base, 0, tx_desc_mem_buf.size);
 		BAM_DMUX_LOG("%s: device reset\n", __func__);
 		bam_ops->sps_device_reset_ptr(a2_device_handle);
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		fp_disconnect_to_bam = 7;
+#endif
+                /* -SSD_RIL */
 	} else {
 		ssr_skipped_disconnect = 1;
 	}
 	unvote_dfab();
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 8;
+#endif
+        /* -SSD_RIL */
 
 	mutex_lock(&bam_rx_pool_mutexlock);
 	while (!list_empty(&bam_rx_pool)) {
@@ -2085,7 +2455,17 @@ static void disconnect_to_bam(void)
 	}
 	bam_rx_pool_len = 0;
 	mutex_unlock(&bam_rx_pool_mutexlock);
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 9;
+#endif
+        /* -SSD_RIL */
 	toggle_apps_ack();
+        /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+	fp_disconnect_to_bam = 10;
+#endif
+        /* -SSD_RIL */
 	verify_tx_queue_is_empty(__func__);
 }
 
@@ -2799,6 +3179,24 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	return 0;
 }
 
+//HTC_WIFI_START
+//For LTE-Wifi Performance usage
+void bam_wifihotspot_speedmode(int mode)
+{
+    if (mode == 1) {
+        bam_adaptive_timer_enabled = 0;
+        POLLING_MIN_SLEEP = 950;
+        POLLING_MAX_SLEEP = 1050;
+    } else {
+        bam_adaptive_timer_enabled = 1;
+        POLLING_MIN_SLEEP = 2950;
+        POLLING_MAX_SLEEP = 3050;
+    }
+    printk("\nWifihotspot speed mode=%d\n", mode);
+}
+EXPORT_SYMBOL(bam_wifihotspot_speedmode);
+//HTC_WIFI_END
+
 static struct of_device_id msm_match_table[] = {
 	{.compatible = "qcom,bam_dmux"},
 	{},
@@ -2813,6 +3211,155 @@ static struct platform_driver bam_dmux_driver = {
 	},
 };
 
+/* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+
+static char bam_dmux_klog[PAGE_SIZE];
+
+static void bam_dmux_dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DBG_MAX_MSG-1);
+}
+
+static char *bam_dmux_get_timestamp(char *tbuf)
+{
+	unsigned long long t;
+	unsigned long nanosec_rem;
+
+	t = cpu_clock(smp_processor_id());
+	nanosec_rem = do_div(t, 1000000000)/1000;
+	scnprintf(tbuf, TIME_BUF_LEN, "[%5lu.%06lu] ", (unsigned long)t,
+		nanosec_rem);
+	return tbuf;
+}
+
+void bam_dmux_events_print(void)
+{
+	unsigned long	flags;
+	unsigned	i;
+	unsigned lines = 0;
+
+	pr_info("### Show BAM DMUX Log Start ###\n");
+
+	read_lock_irqsave(&dbg_bam_dmux.lck, flags);
+
+	i = dbg_bam_dmux.idx;
+	for (bam_dmux_dbg_inc(&i); i != dbg_bam_dmux.idx; bam_dmux_dbg_inc(&i)) {
+		if (!strnlen(dbg_bam_dmux.buf[i], DBG_MSG_LEN))
+			continue;
+		pr_info("%s", dbg_bam_dmux.buf[i]);
+		lines++;
+		if ( lines > bam_dmux_htc_debug_dump_lines )
+			break;
+	}
+
+	read_unlock_irqrestore(&dbg_bam_dmux.lck, flags);
+
+	pr_info("### Show BAM DMUX Log End ###\n");
+}
+
+void msm_bam_dmux_dumplog(void)
+{
+	int ret = 0;
+
+	if ( !bam_dmux_htc_debug_enable ) {
+		pr_info("%s: bam_dmux_htc_debug_enable=[%d]\n", __func__, bam_dmux_htc_debug_enable);
+		return;
+	}
+
+	if ( !bam_dmux_htc_debug_dump ) {
+		pr_info("%s: bam_dmux_htc_debug_dump=[%d]\n", __func__, bam_dmux_htc_debug_dump);
+		return;
+	}
+
+	if ( !bam_ipc_log_txt ) {
+		pr_info("%s: bam_ipc_log_txt = NULL\n", __func__);
+		bam_dmux_events_print();
+		return;
+	}
+
+	pr_info("### Show BAM DMUX Log Start ###\n");
+
+	do {
+
+		memset(bam_dmux_klog, 0x0, PAGE_SIZE);
+		ret = ipc_log_extract( bam_ipc_log_txt, bam_dmux_klog, PAGE_SIZE);
+		if ( ret >= 0 ) {
+			pr_info("%s\n", bam_dmux_klog);
+		}
+
+	} while ( ret > 0 );
+
+	pr_info("### Show BAM DMUX Log End ###\n");
+
+}
+EXPORT_SYMBOL(msm_bam_dmux_dumplog);
+
+void bam_dmux_dbg_log_event(const char * event, ...)
+{
+	unsigned long flags;
+	char tbuf[TIME_BUF_LEN];
+	char dbg_buff[DBG_MSG_LEN];
+	va_list arg_list;
+
+	if ( !bam_dmux_htc_debug_enable ) {
+		return;
+	}
+
+	va_start(arg_list, event);
+	vsnprintf(dbg_buff,
+			      DBG_MSG_LEN, event, arg_list);
+	va_end(arg_list);
+
+	write_lock_irqsave(&dbg_bam_dmux.lck, flags);
+
+	scnprintf(dbg_bam_dmux.buf[dbg_bam_dmux.idx], DBG_MSG_LEN,
+		"%s %s", bam_dmux_get_timestamp(tbuf), dbg_buff);
+
+	bam_dmux_dbg_inc(&dbg_bam_dmux.idx);
+
+	if ( bam_dmux_htc_debug_print )
+		pr_info("%s", dbg_buff);
+	write_unlock_irqrestore(&dbg_bam_dmux.lck, flags);
+
+	return;
+
+}
+EXPORT_SYMBOL(bam_dmux_dbg_log_event);
+
+static int bam_dmux_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&dbg_bam_dmux.lck, flags);
+
+	i = dbg_bam_dmux.idx;
+	for (bam_dmux_dbg_inc(&i); i != dbg_bam_dmux.idx; bam_dmux_dbg_inc(&i)) {
+		if (!strnlen(dbg_bam_dmux.buf[i], DBG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s", dbg_bam_dmux.buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_bam_dmux.lck, flags);
+
+	return 0;
+}
+
+static int bam_dmux_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, bam_dmux_events_show, inode->i_private);
+}
+
+const struct file_operations bam_dmux_dbg_fops = {
+	.open = bam_dmux_events_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif// CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+/* -SSD_RIL */
+
 static int __init bam_dmux_init(void)
 {
 #ifdef CONFIG_DEBUG_FS
@@ -2823,6 +3370,11 @@ static int __init bam_dmux_init(void)
 		debug_create("tbl", 0444, dent, debug_tbl);
 		debug_create("ul_pkt_cnt", 0444, dent, debug_ul_pkt_cnt);
 		debug_create("stats", 0444, dent, debug_stats);
+                /* +SSD_RIL */
+#ifdef CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+		debugfs_create_file("dumplog", S_IRUGO, dent, NULL, &bam_dmux_dbg_fops);
+#endif//CONFIG_HTC_DEBUG_RIL_PCN0006_HTC_DUMP_BAM_DMUX_LOG
+                /* -SSD_RIL */
 	}
 #endif
 

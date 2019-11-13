@@ -21,6 +21,14 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include "../../staging/android/timed_output.h"
+#include <linux/qpnp_vibrator.h>
+
+#define VIB_DBG_LOG(fmt, ...) \
+		printk(KERN_DEBUG "[VIB][DBG] " fmt, ##__VA_ARGS__)
+#define VIB_INFO_LOG(fmt, ...) \
+		printk(KERN_INFO "[VIB] " fmt, ##__VA_ARGS__)
+#define VIB_ERR_LOG(fmt, ...) \
+		printk(KERN_ERR "[VIB][ERR] " fmt, ##__VA_ARGS__)
 
 #define QPNP_VIB_VTG_CTL(base)		(base + 0x41)
 #define QPNP_VIB_EN_CTL(base)		(base + 0x46)
@@ -98,7 +106,7 @@ static int qpnp_vibrator_config(struct qpnp_vib *vib)
 	u8 reg = 0;
 	int rc;
 
-	/* Configure the VTG CTL regiser */
+	
 	rc = qpnp_vib_read_u8(vib, &reg, QPNP_VIB_VTG_CTL(vib->base));
 	if (rc < 0)
 		return rc;
@@ -107,9 +115,10 @@ static int qpnp_vibrator_config(struct qpnp_vib *vib)
 	rc = qpnp_vib_write_u8(vib, &reg, QPNP_VIB_VTG_CTL(vib->base));
 	if (rc)
 		return rc;
+	VIB_INFO_LOG("%s: VTG=0x%x\n", __func__, reg);
 	vib->reg_vtg_ctl = reg;
 
-	/* Configure the VIB ENABLE regiser */
+	
 	rc = qpnp_vib_read_u8(vib, &reg, QPNP_VIB_EN_CTL(vib->base));
 	if (rc < 0)
 		return rc;
@@ -136,6 +145,7 @@ static int qpnp_vibrator_config(struct qpnp_vib *vib)
 	rc = qpnp_vib_write_u8(vib, &reg, QPNP_VIB_EN_CTL(vib->base));
 	if (rc < 0)
 		return rc;
+	VIB_INFO_LOG("%s: EN=0x%x\n", __func__, reg);
 	vib->reg_en_ctl = reg;
 
 	return rc;
@@ -156,6 +166,7 @@ static int qpnp_vib_set(struct qpnp_vib *vib, int on)
 					QPNP_VIB_EN_CTL(vib->base));
 			if (rc < 0)
 				return rc;
+			VIB_INFO_LOG("%s: ON, reg=0x%x\n", __func__, val);
 			vib->reg_en_ctl = val;
 		}
 	} else {
@@ -168,9 +179,12 @@ static int qpnp_vib_set(struct qpnp_vib *vib, int on)
 					QPNP_VIB_EN_CTL(vib->base));
 			if (rc < 0)
 				return rc;
+			VIB_INFO_LOG("%s: OFF, reg=0x%x\n", __func__, val);
 			vib->reg_en_ctl = val;
+			qpnp_vibrator_notifier_call_chain(0, NULL);
 		}
 	}
+
 
 	return 0;
 }
@@ -180,14 +194,17 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib,
 					 timed_dev);
 
+	VIB_INFO_LOG("%s: %d\n", __func__, value);
 	mutex_lock(&vib->lock);
 	hrtimer_cancel(&vib->vib_timer);
 
-	if (value == 0)
+	if (value == 0) {
 		vib->state = 0;
-	else {
+		qpnp_vibrator_notifier_call_chain(0, NULL);
+	} else {
 		value = (value > vib->timeout ?
 				 vib->timeout : value);
+		qpnp_vibrator_notifier_call_chain((value << 1) | 1, NULL);
 		vib->state = 1;
 		hrtimer_start(&vib->vib_timer,
 			      ktime_set(value / 1000, (value % 1000) * 1000000),
@@ -234,7 +251,7 @@ static int qpnp_vibrator_suspend(struct device *dev)
 
 	hrtimer_cancel(&vib->vib_timer);
 	cancel_work_sync(&vib->work);
-	/* turn-off vibrator */
+	
 	qpnp_vib_set(vib, 0);
 
 	return 0;

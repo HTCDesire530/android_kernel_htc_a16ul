@@ -411,6 +411,13 @@
 		qcom,sleep-stats-version = <2>;
 	};
 
+	qcom,rpm-stats@29ffa0 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x29ffa0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <3>;
+        };
+
 	qcom,rpm-master-stats@60150 {
 		compatible = "qcom,rpm-master-stats";
 		reg = <0x60150 0x2030>;
@@ -423,5 +430,11 @@
 		compatible = "qcom,rpmrbcpr-stats";
 		reg = <0x200000 0x1000>;
 		qcom,start-offset = <0x90010>;
+	};
+
+	qcom,rpm-stats-ver {
+		compatible = "qcom,rpm-stats-ver";
+		reg = <0x00290000 0x4>;
+		reg-names = "rpm_data_base";
 	};
 };

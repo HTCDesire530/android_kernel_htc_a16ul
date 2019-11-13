@@ -43,6 +43,9 @@
 
 #include <linux/kthread.h>
 #include <linux/freezer.h>
+#ifdef CONFIG_EXT4_E2FSCK_RECOVER
+#include <linux/reboot.h>
+#endif
 
 #include "ext4.h"
 #include "ext4_extents.h"	/* Needed for trace points definition */
@@ -304,6 +307,11 @@ static void __save_error_info(struct super_block *sb, const char *func,
 {
 	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
 
+	if (bdev_read_only(sb->s_bdev)) {
+		ext4_msg(sb, KERN_ERR, "write access "
+			"unavailable, skipping save_error_info");
+		return;
+	}
 	EXT4_SB(sb)->s_mount_state |= EXT4_ERROR_FS;
 	es->s_state |= cpu_to_le16(EXT4_ERROR_FS);
 	es->s_last_error_time = cpu_to_le32(get_seconds());
@@ -369,6 +377,42 @@ static void ext4_journal_commit_callback(journal_t *journal, transaction_t *txn)
 	spin_unlock(&sbi->s_md_lock);
 }
 
+#ifdef CONFIG_EXT4_E2FSCK_RECOVER
+static void ext4_reboot(struct work_struct *work)
+{
+	printk(KERN_ERR "%s: reboot to run e2fsck\n", __func__);
+	kernel_restart("oem-22");
+}
+
+static void ext4_e2fsck(struct super_block *sb)
+{
+	static int reboot;
+	struct workqueue_struct *wq;
+	struct ext4_sb_info *sb_info;
+	if (reboot)
+		return;
+	printk(KERN_ERR "%s\n", __func__);
+	reboot = 1;
+	sb_info = EXT4_SB(sb);
+	if (!sb_info) {
+		printk(KERN_ERR "%s: no sb_info\n", __func__);
+		reboot = 0;
+		return;
+	}
+	sb_info->recover_wq = create_workqueue("ext4-recover");
+	if (!sb_info->recover_wq) {
+		printk(KERN_ERR "EXT4-fs: failed to create recover workqueue\n");
+		reboot = 0;
+		return;
+	}
+
+	INIT_WORK(&sb_info->reboot_work, ext4_reboot);
+	wq = sb_info->recover_wq;
+	/* queue the work to reboot */
+	queue_work(wq, &sb_info->reboot_work);
+}
+#endif
+
 /* Deal with the reporting of failure conditions on a filesystem such as
  * inconsistencies detected or read IO failures.
  *
@@ -403,6 +447,11 @@ static void ext4_handle_error(struct super_block *sb)
 	if (test_opt(sb, ERRORS_PANIC))
 		panic("EXT4-fs (device %s): panic forced after error\n",
 			sb->s_id);
+
+#ifdef CONFIG_EXT4_E2FSCK_RECOVER
+	if (test_opt(sb, ERRORS_RO) && strncmp(sb->s_id, "dm-", 3))
+		ext4_e2fsck(sb);
+#endif
 }
 
 void __ext4_error(struct super_block *sb, const char *function,
@@ -4612,6 +4661,7 @@ struct ext4_mount_options {
 #endif
 };
 
+extern int mmc_blk_send_wp_info(struct block_device *bdev, unsigned long addr);
 static int ext4_remount(struct super_block *sb, int *flags, char *data)
 {
 	struct ext4_super_block *es;
@@ -4674,6 +4724,23 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 				 "both data=journal and dioread_nolock");
 			err = -EINVAL;
 			goto restore_opts;
+		}
+	}
+
+	if (sb->s_bdev) {
+		struct block_device *bdev = sb->s_bdev;
+		struct hd_struct *p;
+		static bool system_is_wp = false;
+		p = bdev->bd_part;
+		if (p && p->info && !strcmp(p->info->volname, "system") && !(*flags & MS_RDONLY)) {
+			printk(KERN_INFO "%s: partition %s name %s flags 0x%x sect_start %lu\n",
+				__func__, sb->s_id, p->info->volname, *flags, (unsigned long)p->start_sect);
+			if (system_is_wp || mmc_blk_send_wp_info(bdev, (unsigned long)p->start_sect)) {
+				printk(KERN_INFO "%s: system is write-protected, not allow to remount R/W\n",
+					__func__);
+				system_is_wp = true;
+				return -EPERM;
+			}
 		}
 	}
 

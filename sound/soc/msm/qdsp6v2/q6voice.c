@@ -5624,10 +5624,10 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 	if (data->opcode == RESET_EVENTS) {
 
 		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received MODEM reset event\n", __func__);
+			pr_info("%s: Received MODEM reset event\n", __func__);
 
 		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
+			pr_info("%s: Reset event received in Voice service\n",
 				__func__);
 
 			if (common.mvs_info.ssr_cb) {
@@ -5846,10 +5846,10 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 
 	if (data->opcode == RESET_EVENTS) {
 		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received Modem reset event\n", __func__);
+			pr_info("%s: Received Modem reset event\n", __func__);
 
 		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
+			pr_info("%s: Reset event received in Voice service\n",
 				 __func__);
 
 			apr_reset(c->apr_q6_cvs);
@@ -6124,10 +6124,10 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 
 	if (data->opcode == RESET_EVENTS) {
 		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received Modem reset event\n", __func__);
+			pr_info("%s: Received Modem reset event\n", __func__);
 
 		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
+			pr_info("%s: Reset event received in Voice service\n",
 				 __func__);
 
 			apr_reset(c->apr_q6_cvp);

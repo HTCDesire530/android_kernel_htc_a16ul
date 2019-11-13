@@ -16,6 +16,9 @@
 #include <linux/smp.h>
 #include <linux/percpu.h>
 #include <linux/msm_rtb.h>
+#if defined(CONFIG_HTC_DEBUG_RTB)
+#include <linux/htc_debug_tools.h>
+#endif
 
 #include <asm/mmu_context.h>
 #include <asm/smp_plat.h>
@@ -125,7 +128,11 @@ static int contextidr_notifier(struct notifier_block *unused, unsigned long cmd,
 	"	mcr	p15, 0, %0, c13, c0, 1\n"
 	: "=r" (contextidr), "+r" (pid)
 	: "I" (~ASID_MASK));
+#if defined(CONFIG_HTC_DEBUG_RTB)
+	uncached_logk_pc(LOGK_CTXID, (void *)(uintptr_t)htc_debug_get_sched_clock_ms(), (void *)contextidr);
+#else
 	uncached_logk(LOGK_CTXID, (void *)contextidr);
+#endif
 	isb();
 
 	return NOTIFY_OK;

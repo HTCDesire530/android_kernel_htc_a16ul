@@ -126,6 +126,11 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int	(*reset)(struct usb_phy *x);
+/*++ 2014/04/18, USB Team, PCN00003 ++*/
+	void	(*notify_usb_attached)(struct usb_phy *x);
+	/* off mode on. notify otg driver to disable USB */
+	void	(*notify_usb_disabled)(void);
+/*-- 2014/04/18, USB Team, PCN00003 --*/
 
 	/* for notification of usb_phy_dbg_events */
 	void	(*dbg_event)(struct usb_phy *x,

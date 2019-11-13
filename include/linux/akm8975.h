@@ -6,7 +6,13 @@
 
 #include <linux/ioctl.h>
 
-/* Device specific constant values */
+#define AKM8975_I2C_NAME "akm8975"
+
+/* Compass device dependent definition */
+
+/*! \name AK8975 register address
+\anchor AK8975_REG
+Defines a register address of the AK8975.*/
 #define AK8975_REG_WIA		0x00
 #define AK8975_REG_INFO		0x01
 #define AK8975_REG_ST1		0x02
@@ -24,76 +30,71 @@
 #define AK8975_REG_TS2		0x0E
 #define AK8975_REG_I2CDIS	0x0F
 
+
+/*! \name AK8975 fuse-rom address
+\anchor AK8975_FUSE
+Defines a read-only address of the fuse ROM of the AK8975.*/
+
 #define AK8975_FUSE_ASAX	0x10
 #define AK8975_FUSE_ASAY	0x11
 #define AK8975_FUSE_ASAZ	0x12
 
-#define AK8975_MODE_SNG_MEASURE		0x01
-#define AK8975_MODE_SELF_TEST		0x08
-#define AK8975_MODE_FUSE_ACCESS		0x0F
-#define AK8975_MODE_POWERDOWN		0x00
-#define AK8975_RESET_DATA			0x00
+/*! \name AK8975 register value
+\anchor AK8975_CNTL
+Defines a value to be set in the Control Registers (\c CNTL) of AK8975. */
 
-#define AK8975_REGS_SIZE		13
-#define AK8975_WIA_VALUE		0x48
+#define AK8975_CNTL_SNG_MEASURE		0x01
+#define	AK8975_CNTL_CONT_MEASURE	0x02
+#define	AK8975_CNTL_TRIG_MEASURE	0x04
+#define	AK8975_CNTL_SELF_TEST		0x08
+#define	AK8975_CNTL_FUSE_ACCESS		0x0F
+#define	AK8975_CNTL_POWER_DOWN		0x00
 
-/* To avoid device dependency, convert to general name */
-#define AKM_I2C_NAME			"akm8975"
-#define AKM_MISCDEV_NAME		"akm8975_dev"
-#define AKM_SYSCLS_NAME			"compass"
-#define AKM_SYSDEV_NAME			"akm8975"
-#define AKM_REG_MODE			AK8975_REG_CNTL
-#define AKM_REG_RESET			0
-#define AKM_REG_STATUS			AK8975_REG_ST1
-#define AKM_MEASURE_TIME_US		10000
-#define AKM_DRDY_IS_HIGH(x)		((x) & 0x01)
-#define AKM_SENSOR_INFO_SIZE	2
-#define AKM_SENSOR_CONF_SIZE	3
-#define AKM_SENSOR_DATA_SIZE	8
-
-#define AKM_YPR_DATA_SIZE		16
-#define AKM_RWBUF_SIZE			16
-#define AKM_REGS_SIZE			AK8975_REGS_SIZE
-#define AKM_REGS_1ST_ADDR		AK8975_REG_WIA
-#define AKM_FUSE_1ST_ADDR		AK8975_FUSE_ASAX
-
-#define AKM_MODE_SNG_MEASURE	AK8975_MODE_SNG_MEASURE
-#define AKM_MODE_SELF_TEST		AK8975_MODE_SELF_TEST
-#define AKM_MODE_FUSE_ACCESS	AK8975_MODE_FUSE_ACCESS
-#define AKM_MODE_POWERDOWN		AK8975_MODE_POWERDOWN
-#define AKM_RESET_DATA			AK8975_RESET_DATA
-
-#define ACC_DATA_FLAG		0
-#define MAG_DATA_FLAG		1
-#define FUSION_DATA_FLAG	2
-#define AKM_NUM_SENSORS		3
-
-#define ACC_DATA_READY		(1<<(ACC_DATA_FLAG))
-#define MAG_DATA_READY		(1<<(MAG_DATA_FLAG))
-#define FUSION_DATA_READY	(1<<(FUSION_DATA_FLAG))
+#define RBUFF_SIZE_8975		8	/* Rx buffer size */
 
 #define AKMIO				0xA1
 
 /* IOCTLs for AKM library */
-#define ECS_IOCTL_READ				_IOWR(AKMIO, 0x01, char)
-#define ECS_IOCTL_WRITE				_IOW(AKMIO, 0x02, char)
-#define ECS_IOCTL_RESET				_IO(AKMIO, 0x03)
-#define ECS_IOCTL_SET_MODE			_IOW(AKMIO, 0x10, char)
-#define ECS_IOCTL_SET_YPR			_IOW(AKMIO, 0x11, int[AKM_YPR_DATA_SIZE])
-#define ECS_IOCTL_GET_INFO			_IOR(AKMIO, 0x20, unsigned char[AKM_SENSOR_INFO_SIZE])
-#define ECS_IOCTL_GET_CONF			_IOR(AKMIO, 0x21, unsigned char[AKM_SENSOR_CONF_SIZE])
-#define ECS_IOCTL_GET_DATA			_IOR(AKMIO, 0x22, unsigned char[AKM_SENSOR_DATA_SIZE])
-#define ECS_IOCTL_GET_OPEN_STATUS	_IOR(AKMIO, 0x23, int)
-#define ECS_IOCTL_GET_CLOSE_STATUS	_IOR(AKMIO, 0x24, int)
-#define ECS_IOCTL_GET_DELAY			_IOR(AKMIO, 0x25, long long int)
-#define ECS_IOCTL_GET_LAYOUT		_IOR(AKMIO, 0x26, char)
-#define ECS_IOCTL_GET_ACCEL			_IOR(AKMIO, 0x30, short[3])
+#define ECS_IOCTL_WRITE              _IOW(AKMIO, 0x01, char[5])
+#define ECS_IOCTL_READ               _IOWR(AKMIO, 0x02, char[5])
+#define ECS_IOCTL_SET_MODE           _IOW(AKMIO, 0x0F, short)
+#define ECS_IOCTL_GETDATA            _IOR(AKMIO, 0x05, char[RBUFF_SIZE_8975+1])
+#define ECS_IOCTL_SET_YPR            _IOW(AKMIO, 0x06, short[12])
+#define ECS_IOCTL_GET_OPEN_STATUS    _IOR(AKMIO, 0x07, int)
+#define ECS_IOCTL_GET_CLOSE_STATUS   _IOR(AKMIO, 0x08, int)
+#define ECS_IOCTL_GET_DELAY          _IOR(AKMIO, 0x30, short)
+#define ECS_IOCTL_GET_MATRIX         _IOR(AKMIO, 0x0E, short [4][3][3])
+#define ECS_IOCTL_GET_DATA_FOR_GYRO    _IOR(AKMIO, 0x31, short[12])
+#define ECS_IOCTL_GET_COMP_FLAG        _IOR(AKMIO, 0x32, int)
+
+/* IOCTLs for APPs */
+#define ECS_IOCTL_APP_SET_MODE         _IOW(AKMIO, 0x10, short)
+#define ECS_IOCTL_APP_SET_MFLAG        _IOW(AKMIO, 0x11, short)
+#define ECS_IOCTL_APP_GET_MFLAG        _IOW(AKMIO, 0x12, short)
+#define ECS_IOCTL_APP_SET_AFLAG        _IOW(AKMIO, 0x13, short)
+#define ECS_IOCTL_APP_GET_AFLAG        _IOR(AKMIO, 0x14, short)
+#define ECS_IOCTL_APP_SET_TFLAG        _IOR(AKMIO, 0x15, short)
+#define ECS_IOCTL_APP_GET_TFLAG        _IOR(AKMIO, 0x16, short)
+#define ECS_IOCTL_APP_RESET_PEDOMETER  _IO(AKMIO, 0x17)
+#define ECS_IOCTL_APP_SET_DELAY        _IOW(AKMIO, 0x18, short)
+#define ECS_IOCTL_APP_GET_DELAY	       ECS_IOCTL_GET_DELAY
+
+/* Set raw magnetic vector flag */
+#define ECS_IOCTL_APP_SET_MVFLAG       _IOW(AKMIO, 0x19, short)
+
+/* Get raw magnetic vector flag */
+#define ECS_IOCTL_APP_GET_MVFLAG       _IOR(AKMIO, 0x1A, short)
 
 struct akm8975_platform_data {
-	char layout;
-	int gpio_DRDY;
-	int gpio_RSTN;
+	short layouts[4][3][3];
+	short irq_trigger;
+	int use_pana_gyro;
+	int (*power_LPM)(int on);
 };
 
+void akm_get_akmd_data(short *getdata);
+int  akm_get_akmd_ready(void);
+extern int EWTZMU2_Report_Value(void);
+extern int EWTZMU2_Report_Value_akm(int ifirst, int x, int y, int z);
 #endif
 

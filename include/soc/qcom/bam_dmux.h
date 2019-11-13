@@ -85,6 +85,10 @@ int msm_bam_dmux_is_ch_low(uint32_t id);
 int msm_bam_dmux_reg_notify(void *priv,
 		       void (*notify)(void *priv, int event_type,
 						unsigned long data));
+//HTC_WIFI_START
+//For LTE-Hotspot Performance
+void bam_wifihotspot_speedmode(int mode);
+//HTC_WIFI_END
 #else
 static inline int msm_bam_dmux_open(uint32_t id, void *priv,
 		       void (*notify)(void *priv, int event_type,

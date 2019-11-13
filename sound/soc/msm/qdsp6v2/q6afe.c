@@ -37,6 +37,13 @@ enum {
 	MAX_AFE_CAL_TYPES
 };
 
+//htc audio ++
+#undef pr_info
+#undef pr_err
+#define pr_info(fmt, ...) pr_aud_info(fmt, ##__VA_ARGS__)
+#define pr_err(fmt, ...) pr_aud_err(fmt, ##__VA_ARGS__)
+//htc audio --
+
 enum calibration_state {
 	CALIB_INCORRECT_OP_MODE,
 	CALIB_INACTIVE,
@@ -483,7 +490,7 @@ static int afe_send_cal_block(u16 port_id, struct cal_block_data *cal_block)
 
 	index = q6audio_get_port_index(port_id);
 	if (index < 0 || index > AFE_MAX_PORTS) {
-		pr_debug("%s: AFE port index[%d] invalid!\n",
+		pr_err("%s: AFE port index[%d] invalid!\n",
 				__func__, index);
 		result = -EINVAL;
 		goto done;

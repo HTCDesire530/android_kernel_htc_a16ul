@@ -408,7 +408,7 @@ struct i2c_msm_clk_div_fld {
  */
 static struct i2c_msm_clk_div_fld i2c_msm_clk_div_map[] = {
 	{KHz(100), 124, 62},
-	{KHz(400),  28, 14},
+	{KHz(400),  30, 15},
 	{KHz(1000),  8,  5},
 };
 
@@ -2395,6 +2395,9 @@ static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
 		}
 
 		i2c_msm_dbg(ctrl, MSM_PROF, "DT entry ret:%d name:%s val:%d",
+				ret, itr->dt_name, *((int *)itr->ptr_data));
+
+		dev_info(ctrl->dev, "DT entry ret:%d name:%s val:%d",
 				ret, itr->dt_name, *((int *)itr->ptr_data));
 
 		if (ret) {

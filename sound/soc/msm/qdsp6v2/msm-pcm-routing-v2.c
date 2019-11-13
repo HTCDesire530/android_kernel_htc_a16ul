@@ -849,7 +849,7 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 								__func__);
 				continue;
 			}
-			topology = adm_get_topology_for_port_from_copp_id(
+			topology = adm_get_topology_for_port_copp_idx( //htc_audio
 					msm_bedais[i].port_id, idx);
 			/*adm fails to get topology id during ssr. Fallback
 			to msm_routing_get_adm_topology in that case */
@@ -1229,6 +1229,29 @@ static int msm_routing_put_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 
 	return 1;
 }
+
+//HTC_AUD ++
+static int msm_htc_routing_get_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_htc_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+
+	pr_debug("%s: FM Switch enable %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+	if (ucontrol->value.integer.value[0])
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+	else
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+	return 1;
+}
+//HTC_AUD --
 
 static int msm_routing_get_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
@@ -3624,6 +3647,13 @@ static const struct snd_kcontrol_new quat_mi2s_rx_switch_mixer_controls =
 	0, 1, 0, msm_routing_get_switch_mixer,
 	msm_routing_put_switch_mixer);
 
+//HTC_AUD
+static const struct snd_kcontrol_new htc_pri_switch_mixer_controls =
+	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
+	0, 1, 0, msm_htc_routing_get_switch_mixer,
+	msm_htc_routing_put_switch_mixer);
+//HTC_AUD
+
 static const struct snd_kcontrol_new hfp_aux_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 	0, 1, 0, msm_routing_get_switch_mixer,
@@ -4521,7 +4551,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("QUAT_MI2S_DL_HL",
 		"Quaternary MI2S_RX Hostless Playback",
 		0, 0, 0, 0),
-
+//HTC_AUD_START
+	SND_SOC_DAPM_AIF_IN("MM_STUB_DL", "MM_STUB Playback", 0, 0, 0, 0),
+//HTC_AUD_END
 	SND_SOC_DAPM_AIF_IN("AUXPCM_DL_HL", "AUXPCM_HOSTLESS Playback",
 		0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("AUXPCM_UL_HL", "AUXPCM_HOSTLESS Capture",
@@ -4534,6 +4566,11 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("PRI_MI2S_UL_HL",
 		"Primary MI2S_TX Hostless Capture",
 		0, 0, 0, 0),
+//HTC_AUD_START
+	SND_SOC_DAPM_AIF_OUT("PRI_MI2S_UL_HL2",
+		"Primary MI2S_RX Hostless Capture",
+		0, 0, 0, 0),
+//HTC_AUD_END
 	SND_SOC_DAPM_AIF_OUT("MI2S_DL_HL", "MI2S_RX_HOSTLESS Playback",
 		0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("DTMF_DL_HL", "DTMF_RX_HOSTLESS Playback",
@@ -4666,6 +4703,10 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 				&hfp_aux_switch_mixer_controls),
 	SND_SOC_DAPM_SWITCH("HFP_INT_UL_HL", SND_SOC_NOPM, 0, 0,
 				&hfp_int_switch_mixer_controls),
+//HTC_AUD
+       SND_SOC_DAPM_SWITCH("PRI_MI2S_DL_COMPR_STUB", SND_SOC_NOPM, 0, 0,
+                               &htc_pri_switch_mixer_controls),
+//HTC_AUD
 
 	/* Mux Definitions */
 	SND_SOC_DAPM_MUX("LSM1 MUX", SND_SOC_NOPM, 0, 0, &lsm1_mux),
@@ -5614,10 +5655,14 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"TERT_MI2S_UL_HL", NULL, "TERT_MI2S_TX"},
 	{"SEC_I2S_RX", NULL, "SEC_I2S_DL_HL"},
 	{"PRI_MI2S_UL_HL", NULL, "PRI_MI2S_TX"},
+	{"PRI_MI2S_UL_HL2", NULL, "TERT_MI2S_TX"}, //HTC_AUD
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_DL_HL"},
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_DL_HL"},
 	{"QUAT_MI2S_UL_HL", NULL, "QUAT_MI2S_TX"},
-
+//HTC_AUD
+	{"PRI_MI2S_DL_COMPR_STUB", "Switch", "MM_STUB_DL"},
+	{"PRI_MI2S_RX", NULL, "PRI_MI2S_DL_COMPR_STUB"},
+//HTC_AUD
 	{"SLIMBUS_0_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},

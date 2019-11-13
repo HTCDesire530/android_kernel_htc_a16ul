@@ -203,14 +203,6 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 	return 0;
 }
 
-/**
- * __mdss_mdp_rotator_to_pipe() - setup pipe according to rotator session params
- * @rot:	Pointer to rotator session
- * @pipe:	Pointer to pipe driving structure
- *
- * After calling this the pipe structure will contain all parameters required
- * to use rotator pipe. Note that this function assumes rotator pipe is idle.
- */
 static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_pipe *pipe)
 {
@@ -401,11 +393,6 @@ static int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot)
 	return ret;
 }
 
-/*
- * Try to reserve hardware resources for rotator session if possible, if this
- * is not possible we may still have a chance to reuse existing pipes used by
- * other sessions at a later point.
- */
 static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 {
 	int ret;
@@ -416,12 +403,6 @@ static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 			pr_debug("reserved rotator pipe=%d\n", rot->pipe->num);
 			list_add_tail(&rot->head, &rotator_queue);
 		} else {
-			/*
-			 * if rotator queue is not empty means that we'll be
-			 * able to reuse existing rotator pipes for this rotator
-			 * session, otherwise it means that there are no DMA
-			 * pipes available so we should abort now
-			 */
 			if (list_empty(&rotator_queue)) {
 				pr_err("unable to reserve rot pipe\n");
 				return -ENODEV;
@@ -463,13 +444,6 @@ int mdss_mdp_calc_dnsc_factor(struct mdp_overlay *req,
 			ret = -EINVAL;
 			goto dnsc_err;
 		}
-		/*
-		 * Validate that the calculated downscale
-		 * factor is valid. Ensure that the factor
-		 * is a number with a single bit enabled,
-		 * no larger than 32 (2^5) as we support
-		 * only power of 2 downscaling up to 32.
-		 */
 		rot->dnsc_factor_w = src_w / dst_w;
 		bit = fls(rot->dnsc_factor_w);
 		if ((rot->dnsc_factor_w & ~BIT(bit - 1)) || (bit > 5)) {
@@ -550,7 +524,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		goto rot_err;
 	}
 
-	/* keep only flags of interest to rotator */
+	
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 
@@ -593,10 +567,6 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 
 	rot->dst = rot->src_rect;
 
-	/*
-	 * by default, rotator output should be placed directly on
-	 * output buffer address without any offset.
-	 */
 	rot->dst.x = 0;
 	rot->dst.y = 0;
 
@@ -605,7 +575,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 
 	rot->params_changed++;
 
-	/* If the format changed, release the smp alloc */
+	
 	if (format_changed && rot->pipe) {
 		mdss_mdp_rotator_busy_wait(rot);
 		mdss_mdp_smp_release(rot->pipe);
@@ -626,11 +596,6 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		if (rot && (req->id == MSMFB_NEW_REQUEST))
 			mdss_mdp_rotator_finish(rot);
 	}
-	/*
-	 * overwrite the src format for rotator to dst format
-	 * for use by the user. On subsequent set calls, the
-	 * user is expected to proivde the original src format
-	 */
 	req->src.format = mdss_mdp_get_rotator_dst_format(req->src.format,
 		req->flags & MDP_ROT_90, req->flags & MDP_BWC_EN);
 

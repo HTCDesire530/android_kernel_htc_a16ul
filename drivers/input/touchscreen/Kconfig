@@ -1019,6 +1019,36 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_fw_update.
 
+config TOUCHSCREEN_HIMAX_ES
+	tristate "HIMAX HM852xES serious i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for HIMAX HM852xES over I2C based touchscreens.
+
+config TOUCHSCREEN_HIMAX_DEBUG
+	tristate "HIMAX HM852xES serious debug function"
+	depends on I2C
+	help
+	  This enables HIMAX HM852xES debug function.
+
+config TOUCHSCREEN_HIMAX
+        tristate "HIMAX HM852xD serious i2c touchscreen"
+        depends on I2C
+        help
+          This enables support for HIMAX HM852xD over I2C based touchscreens.
+
+config TOUCHSCREEN_HIMAX_ESD_EN
+        tristate "HIMAX HM852xD/HM852xES ESD recovery function"
+        depends on I2C
+        help
+          This enables support ESD recovery function for HIMAX HM852xD/HM852xES.
+
+config TOUCHSCREEN_PROXIMITY
+	tristate "Touch proximity sensor"
+        depends on I2C
+	help
+	  if you say yes here, you turn on the touch proximity sensor feature
+
 config SECURE_TOUCH
 	bool "Secure Touch"
 	depends on (TOUCHSCREEN_ATMEL_MXT || TOUCHSCREEN_SYNAPTICS_I2C_RMI4 || \
@@ -1039,6 +1069,14 @@ config TOUCHSCREEN_GT9XX
           If unsure, say N.
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
+
+config TOUCHSCREEN_TOUCH_FW_UPDATE
+        tristate "Touchscreen firmware update"
+        default y
+        help
+          Say Y here to support touch firmware update
+
+          If unsure, say N.
 
 config TOUCHSCREEN_BU21150
 	tristate "JDI AFE BU21150"

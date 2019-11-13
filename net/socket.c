@@ -586,9 +586,17 @@ const struct file_operations bad_sock_fops = {
  *	callback, and the inode is then released if the socket is bound to
  *	an inode not a file.
  */
+/* +SSD_RIL: Garbage_Filter_TCP */
+int add_or_remove_port(struct sock *sk, int add_or_remove);
+/* -SSD_RIL: Garbage_Filter_TCP */
 
 void sock_release(struct socket *sock)
 {
+	/* ++SSD_RIL: Garbage_Filter_TCP */
+	if (sock->sk != NULL)
+		add_or_remove_port(sock->sk, 0);
+	/* --SSD_RIL: Garbage_Filter_TCP */
+
 	if (sock->ops) {
 		struct module *owner = sock->ops->owner;
 
@@ -1569,6 +1577,11 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 				sock_put(sock->sk);
 		}
 		fput_light(sock->file, fput_needed);
+
+		/* ++SSD_RIL: Garbage_Filter_TCP */
+		if (sock->sk != NULL)
+			add_or_remove_port(sock->sk, 1);
+		/* --SSD_RIL: Garbage_Filter_TCP */
 	}
 	return err;
 }

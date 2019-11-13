@@ -295,7 +295,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 
 	for_each_child_of_node(supply_root_node, supply_node) {
 		const char *st = NULL;
-		/* vreg-name */
+		
 		rc = of_property_read_string(supply_node,
 			"qcom,supply-name", &st);
 		if (rc) {
@@ -305,7 +305,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		snprintf(mp->vreg_config[i].vreg_name,
 			ARRAY_SIZE((mp->vreg_config[i].vreg_name)), "%s", st);
-		/* vreg-min-voltage */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-min-voltage", &tmp);
 		if (rc) {
@@ -315,7 +315,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].min_voltage = tmp;
 
-		/* vreg-max-voltage */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-max-voltage", &tmp);
 		if (rc) {
@@ -325,7 +325,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].max_voltage = tmp;
 
-		/* enable-load */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-enable-load", &tmp);
 		if (rc) {
@@ -335,7 +335,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].enable_load = tmp;
 
-		/* disable-load */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-disable-load", &tmp);
 		if (rc) {
@@ -345,7 +345,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].disable_load = tmp;
 
-		/* pre-sleep */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-pre-on-sleep", &tmp);
 		if (rc) {
@@ -366,7 +366,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 			mp->vreg_config[i].pre_off_sleep = tmp;
 		}
 
-		/* post-sleep */
+		
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-post-on-sleep", &tmp);
 		if (rc) {
@@ -545,7 +545,7 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 		|| (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
 		bpp = 2;
 	else
-		bpp = 3; /* Default format set to RGB888 */
+		bpp = 3; 
 
 	if (pinfo->type == MIPI_VIDEO_PANEL &&
 		!pinfo->clk_rate) {
@@ -566,9 +566,6 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 
 	ctrl_pdata->panel_data.event_handler = dsi_event_handler;
 
-	/*
-	 * register in mdp driver
-	 */
 	rc = mdss_register_panel(dev, &(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&dev->dev, "unable to register MIPI DSI panel\n");

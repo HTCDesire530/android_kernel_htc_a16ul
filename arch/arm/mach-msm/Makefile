@@ -4,6 +4,8 @@ obj-y += timer.o
 endif
 obj-$(CONFIG_USE_OF) += board-dt.o
 
+obj-$(CONFIG_MSM_SCM) += htc_debug.o htc_anti_rollback.o
+
 obj-y += acpuclock.o
 obj-$(CONFIG_HW_PERF_EVENTS) += perf_trace_counters.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += msm-krait-l2-accessors.o perf_event_msm_krait_l2.o
@@ -34,6 +36,9 @@ obj-$(CONFIG_KRAIT_REGULATOR) += krait-regulator.o  krait-regulator-pmic.o
 obj-$(CONFIG_ARCH_MDM9630) += board-9630.o board-9630-gpiomux.o
 obj-$(CONFIG_MSM_PP2S_FEMTO) += pp2s.o
 obj-$(CONFIG_ARCH_MSM8909) += board-8909.o
+obj-$(CONFIG_MACH_A16) += board-8909-htc_a16.o
+obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o
+obj-$(CONFIG_HTC_BATT_8960) += htc_battery_8960.o htc_battery_cell.o
 obj-$(CONFIG_ARCH_MSM8916) += board-8916.o
 obj-$(CONFIG_ARCH_MSM8226) += board-8226.o board-8226-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8226) += clock-8226.o clock-mdss-8974.o

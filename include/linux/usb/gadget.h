@@ -145,6 +145,9 @@ struct usb_ep_ops {
 
 	int (*fifo_status) (struct usb_ep *ep);
 	void (*fifo_flush) (struct usb_ep *ep);
+/*++ 2014/09/01, USB Team,  PCN00033 ++*/
+	void (*nuke) (struct usb_ep *ep);
+/*-- 2014/09/01, USB Team,  PCN00033 --*/
 };
 
 /**
@@ -451,6 +454,17 @@ static inline void usb_ep_fifo_flush(struct usb_ep *ep)
 		ep->ops->fifo_flush(ep);
 }
 
+/*++ 2014/09/01, USB Team,  PCN00033 ++*/
+/*
+ * usb_ep_nuke - dequeue all endpoint requests
+ * *@ep: endpoint
+ * */
+static inline void usb_ep_nuke(struct usb_ep *ep)
+{
+	if (ep->ops->nuke)
+		ep->ops->nuke(ep);
+}
+/*-- 2014/09/01, USB Team,  PCN00033 --*/
 
 /*-------------------------------------------------------------------------*/
 
@@ -562,6 +576,9 @@ struct usb_gadget {
 	unsigned			in_epnum;
 	bool				l1_supported;
 	u8				usb_core_id;
+/*++ 2014/12/02, USB Team, PCN00052 ++*/
+	int				miMaxMtu;
+/*-- 2014/12/02, USB Team, PCN00052 --*/
 	bool				streaming_enabled;
 	bool				remote_wakeup;
 	void				*private;
@@ -879,6 +896,7 @@ struct usb_gadget_driver {
 	int			(*setup)(struct usb_gadget *,
 					const struct usb_ctrlrequest *);
 	void			(*disconnect)(struct usb_gadget *);
+	void			(*mute_disconnect)(struct usb_gadget *);
 	void			(*suspend)(struct usb_gadget *);
 	void			(*resume)(struct usb_gadget *);
 

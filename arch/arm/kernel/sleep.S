@@ -4,6 +4,11 @@
 #include <asm/assembler.h>
 #include <asm/glue-cache.h>
 #include <asm/glue-proc.h>
+
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+#include <htc_debug/mnemosyne/htc_footprint.h>
+#endif
+
 	.text
 
 /*
@@ -126,6 +131,31 @@ ENDPROC(cpu_resume_after_mmu)
 	.data
 	.align
 ENTRY(cpu_resume)
+
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	MPIDR2INDEX r0, r1
+
+	VIRT2PHYS r1, mnemosyne_phys, cpu_resume, r2
+	ldr	r1, [r1]
+
+	cmp	r1, #0
+	beq	1f							/* if base is NULL, skip it. */
+
+	MNEMOSYNE_GET_ADDR_I r2, r1, kernel_exit_counter_from_cpu, r0
+
+	ldr	r3, [r2]
+	add	r3, r3, #1
+	str	r3, [r2]
+	dsb	sy
+
+	MNEMOSYNE_GET_ADDR_I r2, r1, kernel_footprint_cpu, r0
+	mov	r3, #4							/* write footprint 4 */
+	strb	r3, [r2]
+	dsb	sy
+
+	1:
+#endif
+
 	mov	r1, #0
 	ALT_SMP(mrc p15, 0, r0, c0, c0, 5)
 	ALT_UP_B(1f)

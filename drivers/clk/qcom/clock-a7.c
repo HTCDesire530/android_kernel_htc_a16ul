@@ -34,7 +34,7 @@
 
 DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
 
-static struct mux_div_clk a7ssmux = {
+struct mux_div_clk a7ssmux = {
 	.ops = &rcg_mux_div_ops,
 	.safe_freq = 300000000,
 	.data = {
@@ -411,6 +411,9 @@ static int clock_a7_probe(struct platform_device *pdev)
 
 	snprintf(prop_name, ARRAY_SIZE(prop_name),
 			"qcom,speed%d-bin-v%d", speed_bin, version);
+
+	dev_info(&pdev->dev, "Using speed bin %d ver %d\r\n", speed_bin, version);
+
 	rc = of_get_fmax_vdd_class(pdev, &a7ssmux.c, prop_name);
 	if (rc) {
 		/* Fall back to most conservative PVS table */

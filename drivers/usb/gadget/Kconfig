@@ -484,6 +484,11 @@ config USB_CI13XXX_MSM_HSIC
 	  dynamically linked module called "ci13xxx_msm_hsic" and force all
 	  gadget drivers to also be dynamically linked.
 
+config USB_ANDROID_ECM
+	boolean "Android gadget ECM function"
+	depends on USB_G_ANDROID
+	help
+
 config USB_DWC3_MSM
 	tristate "DesignWare USB3.0 (DRD) Controller for MSM"
 	depends on ARCH_MSM

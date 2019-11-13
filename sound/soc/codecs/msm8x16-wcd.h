@@ -174,7 +174,7 @@ enum {
 
 enum {
 	ON_DEMAND_MICBIAS = 0,
-	ON_DEMAND_SPKDRV,
+//	ON_DEMAND_SPKDRV, //mark by htc audio
 	ON_DEMAND_SUPPLIES_MAX,
 };
 

@@ -433,4 +433,10 @@
 		reg = <0x200000 0x1000>;
 		qcom,start-offset = <0x90010>;
 	};
+
+	qcom,rpm-stats-ver {
+		compatible = "qcom,rpm-stats-ver";
+		reg = <0x00290000 0x4>;
+		reg-names = "rpm_data_base";
+	};
 };

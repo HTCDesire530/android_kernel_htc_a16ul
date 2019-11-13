@@ -22,6 +22,10 @@
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/msm-clock-controller.h>
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+#include <htc_debug/mnemosyne/htc_footprint.h>
+#endif
+
 #include "clock.h"
 
 #define PLL_OUTCTRL BIT(0)
@@ -427,31 +431,51 @@ static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 	struct pll_clk *pll = to_pll_clk(c);
 	unsigned long flags;
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_BEFORE_FIND_FREQ);
+#endif
 	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END
 			&& nf->freq_hz != rate; nf++)
 		;
 
-	if (nf->freq_hz == PLL_FREQ_END)
+	if (nf->freq_hz == PLL_FREQ_END) {
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_ERR_NO_FREQ);
+#endif
 		return -EINVAL;
+	}
 
 	/*
 	 * Ensure PLL is off before changing rate. For optimization reasons,
 	 * assume no downstream clock is using actively using it.
 	 */
 	spin_lock_irqsave(&c->lock, flags);
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_BEFORE_DISABLE);
+#endif
 	if (c->count)
 		c->ops->disable(c);
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_BEFORE_SET_PLL);
+#endif
 	writel_relaxed(nf->l_val, PLL_L_REG(pll));
 	writel_relaxed(nf->m_val, PLL_M_REG(pll));
 	writel_relaxed(nf->n_val, PLL_N_REG(pll));
 
 	__pll_config_reg(PLL_CONFIG_REG(pll), nf, &pll->masks);
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_cpu_freq_footprint_by_clk(FT_CUR_RATE, c, rate);
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_BEFORE_ENABLE);
+#endif
 	if (c->count)
 		c->ops->enable(c);
 
 	spin_unlock_irqrestore(&c->lock, flags);
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint_by_clk(c, ACPU_PLL_BEFORE_RETURN);
+#endif
 	return 0;
 }
 

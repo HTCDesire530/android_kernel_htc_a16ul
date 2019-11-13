@@ -1714,7 +1714,14 @@ static int qpnp_batt_power_get_property(struct power_supply *psy,
 		val->intval = chip->cfg_warm_bat_decidegc;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+#if 0
 		val->intval = get_prop_capacity(chip);
+#else
+		/*FIXME*/
+		/*report fake level 77%*/
+		val->intval = 77;
+		pr_info("report fake batt level 77%%\n");
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_current_now(chip);

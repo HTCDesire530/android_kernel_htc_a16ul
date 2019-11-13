@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
@@ -148,6 +149,14 @@ fail:
 	return;
 }
 
+static struct completion adsp_completion;
+
+static int adsp_loader_thread(void *data)
+{
+	complete(&adsp_completion);
+	adsp_loader_do(data);
+	return 0;
+}
 
 static ssize_t adsp_boot_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
@@ -155,11 +164,19 @@ static ssize_t adsp_boot_store(struct kobject *kobj,
 	size_t count)
 {
 	int boot = 0;
+	struct task_struct *adsp_task;
+
 	sscanf(buf, "%du", &boot);
 
 	if (boot == BOOT_CMD) {
 		pr_debug("%s: going to call adsp_loader_do\n", __func__);
 		adsp_loader_do(adsp_private);
+		adsp_task = kthread_run(adsp_loader_thread,
+			adsp_private, "adsp_loader_thread");
+		if (!IS_ERR(adsp_task))
+			wait_for_completion(&adsp_completion);
+		else
+			adsp_loader_do(adsp_private);
 	} else if (boot == IMAGE_UNLOAD_CMD) {
 		pr_debug("%s: going to call adsp_loader_unloader\n", __func__);
 		adsp_loader_unload(adsp_private);
@@ -228,6 +245,7 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 	}
 
 	adsp_private = pdev;
+	init_completion(&adsp_completion);
 
 	return 0;
 

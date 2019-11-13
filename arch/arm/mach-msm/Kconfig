@@ -416,6 +416,31 @@ config MSM_REMOTE_SPINLOCK_LDREX
 config MSM_REMOTE_SPINLOCK_SFPB
 	bool
 
+menu "MSM Board Selection"
+
+config MACH_A16
+  depends on ARCH_MSM8909
+  bool "MSM8909 A16"
+  help
+    Support for HTC MSM8909 A16
+
+endmenu
+
+config HTC_BATT_CORE
+   depends on POWER_SUPPLY
+   default n
+   bool "HTC battery core driver"
+
+config HTC_BATT_8960
+   depends on HTC_BATT_CORE
+   default n
+   bool "HTC battery driver for 8960"
+
+config HTC_BATT_GPIO_OVP
+   depends on HTC_BATT_8960
+   default n
+   bool "OVP pin for HTC battery driver"
+
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
 	default y

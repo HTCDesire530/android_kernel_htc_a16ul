@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)	"BATTERY: %s: " fmt, __func__
+#define pr_fmt(fmt)	"[BATT][INTERFACE]: %s: " fmt, __func__
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/init.h>
@@ -23,6 +23,17 @@
 #include <linux/uaccess.h>
 #include <linux/batterydata-lib.h>
 #include <linux/batterydata-interface.h>
+#ifdef CONFIG_HTC_BATT_8960
+#include <linux/htc_flags.h>
+#endif
+
+#ifdef pr_debug
+#undef pr_debug
+#endif
+#define pr_debug(fmt, args...) do { \
+		if (flag_enable_bms_charger_log) \
+			printk(KERN_WARNING pr_fmt(fmt), ## args); \
+	} while (0)
 
 struct battery_data {
 	dev_t				dev_no;
@@ -31,6 +42,18 @@ struct battery_data {
 	struct cdev			battery_cdev;
 	struct bms_battery_data		*profile;
 };
+
+#ifdef CONFIG_HTC_BATT_8960
+struct battery_ioctl_data {
+	int soc;
+	int rbatt_sf;
+	int slope;
+	int fcc_mah;
+};
+static struct battery_ioctl_data *the_battery_ioctl;
+static bool flag_enable_bms_charger_log;
+#endif
+
 static struct battery_data *the_battery;
 
 static int battery_data_open(struct inode *inode, struct file *file)
@@ -75,6 +98,9 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 		}
 		pr_debug("BPIOCXSOC: ocv=%d batt_temp=%d soc=%d\n",
 				bp.ocv_uv / 1000, bp.batt_temp, soc);
+#ifdef CONFIG_HTC_BATT_8960
+		the_battery_ioctl->soc = soc;
+#endif
 		break;
 	case BPIOCXRBATT:
 		rbatt_sf = interpolate_scalingfactor(
@@ -87,6 +113,9 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 		}
 		pr_debug("BPIOCXRBATT: soc=%d batt_temp=%d rbatt_sf=%d\n",
 					bp.soc, bp.batt_temp, rbatt_sf);
+#ifdef CONFIG_HTC_BATT_8960
+		the_battery_ioctl->rbatt_sf = rbatt_sf;
+#endif
 		break;
 	case BPIOCXSLOPE:
 		slope = interpolate_slope(battery->profile->pc_temp_ocv_lut,
@@ -98,6 +127,9 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 		}
 		pr_debug("BPIOCXSLOPE: soc=%d batt_temp=%d slope=%d\n",
 					bp.soc, bp.batt_temp, slope);
+#ifdef CONFIG_HTC_BATT_8960
+		the_battery_ioctl->slope = slope;
+#endif
 		break;
 	case BPIOCXFCC:
 		fcc_mah = interpolate_fcc(battery->profile->fcc_temp_lut,
@@ -109,6 +141,9 @@ static long battery_data_ioctl(struct file *file, unsigned int cmd,
 		}
 		pr_debug("BPIOCXFCC: batt_temp=%d fcc_mah=%d\n",
 					bp.batt_temp, fcc_mah);
+#ifdef CONFIG_HTC_BATT_8960
+		the_battery_ioctl->fcc_mah = fcc_mah;
+#endif
 		break;
 	default:
 		pr_err("IOCTL %d not supported\n", cmd);
@@ -149,6 +184,63 @@ int config_battery_data(struct bms_battery_data *profile)
 	return 0;
 }
 
+#ifdef CONFIG_HTC_BATT_8960
+#define BATT_LOG_BUF_LEN (512)
+static char batt_log_buf[BATT_LOG_BUF_LEN];
+int dump_battery_data(void)
+{
+	unsigned int len =0;
+
+	memset(batt_log_buf, 0, sizeof(BATT_LOG_BUF_LEN));
+
+	len += scnprintf(batt_log_buf + len, BATT_LOG_BUF_LEN - len,
+			"soc=%d,", the_battery_ioctl->soc);
+
+	len += scnprintf(batt_log_buf + len, BATT_LOG_BUF_LEN - len,
+			"rbatt=%d,", the_battery_ioctl->rbatt_sf);
+
+	len += scnprintf(batt_log_buf + len, BATT_LOG_BUF_LEN - len,
+			"slope=%d,", the_battery_ioctl->slope);
+
+	len += scnprintf(batt_log_buf + len, BATT_LOG_BUF_LEN - len,
+			"fcc=%d,", the_battery_ioctl->fcc_mah);
+
+
+	/*Log len is larger than log buffer, please decrease log length*/
+	if(BATT_LOG_BUF_LEN - len <= 1)
+		pr_warn("batt log length maybe out of buffer range!!!");
+
+	pr_info("%s\n", batt_log_buf);
+	return len;
+
+}
+
+int pm8909_batterydata_ioctl_attr_text(char *buf, int size)
+{
+	int len = 0;
+
+	if (!the_battery_ioctl) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	len += scnprintf(buf + len, size - len,
+			"soc: %d;\n", the_battery_ioctl->soc);
+
+	len += scnprintf(buf + len, size - len,
+			"rbatt: %d;\n", the_battery_ioctl->rbatt_sf);
+
+	len += scnprintf(buf + len, size - len,
+			"slope: %d;\n", the_battery_ioctl->slope);
+
+	len += scnprintf(buf + len, size - len,
+			"fcc: %d;\n", the_battery_ioctl->fcc_mah);
+
+	return len;
+
+}
+#endif /* CONFIG_HTC_BATT_8960 */
+
 int batterydata_init(void)
 {
 	int rc;
@@ -156,6 +248,12 @@ int batterydata_init(void)
 
 	battery = kzalloc(sizeof(*battery), GFP_KERNEL);
 	if (!battery) {
+		pr_err("Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	the_battery_ioctl = kzalloc(sizeof(*the_battery_ioctl), GFP_KERNEL);
+	if (!the_battery_ioctl) {
 		pr_err("Unable to allocate memory\n");
 		return -ENOMEM;
 	}
@@ -192,6 +290,11 @@ int batterydata_init(void)
 	the_battery = battery;
 
 	pr_info("Battery-data device created!\n");
+
+#ifdef CONFIG_HTC_BATT_8960
+	flag_enable_bms_charger_log =
+               (get_kernel_flag() & KERNEL_FLAG_ENABLE_BMS_CHARGER_LOG) ? 1 : 0;
+#endif
 
 	return 0;
 

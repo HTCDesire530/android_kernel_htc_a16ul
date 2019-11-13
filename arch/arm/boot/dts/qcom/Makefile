@@ -28,6 +28,16 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	msm8974pro-ac-pm8941-liquid.dtb \
 	msm8974pro-ac-pm8941-mtp.dtb \
 	msm8974pro-ac-pma8084-pm8941-mtp.dtb
+
+ifeq ($(CONFIG_MACH_A32E),y)
+else
+ifeq ($(CONFIG_MACH_A13),y)
+else
+ifeq ($(CONFIG_MACH_A12),y)
+else
+ifeq ($(CONFIG_MACH_A16),y)
+dtb-$(CONFIG_ARCH_MSM8909) += msm8909-htc_a16.dtb
+else
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	msm8909-rumi.dtb \
 	msm8909-qrd-skua.dtb \
@@ -66,13 +76,21 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	msm8208-1gb-rcm.dtb \
 	msm8208-qhd-cdp.dtb \
 	msm8208-qhd-rcm.dtb \
-	msm8909w-wtp.dtb \
-	msm8909w-cdp.dtb \
-	apq8009w-wtp.dtb \
-	apq8009w-cdp.dtb \
-	apq8009-mtp-wcd9326.dtb \
-	msm8909-mtp-wcd9326.dtb \
-	msm8909-mtp-wcd9326-refboard.dtb
+	msm8909-pm8916-w-mtp.dtb \
+	msm8909-pm8916-w-cdp.dtb \
+	apq8009-pm8916-w-mtp.dtb \
+	apq8009-pm8916-w-cdp.dtb \
+        msm8909w-wtp.dtb \
+        msm8909w-cdp.dtb \
+        apq8009w-wtp.dtb \
+        apq8009w-cdp.dtb \
+        apq8009-mtp-wcd9326.dtb \
+        msm8909-mtp-wcd9326.dtb
+
+endif
+endif
+endif
+endif
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \

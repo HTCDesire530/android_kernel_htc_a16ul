@@ -15,16 +15,10 @@
 #include <dt-bindings/clock/msm-clocks-a7.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8909";
-	compatible = "qcom,msm8909";
-	qcom,msm-id =	<245 0>,
-			<258 0>,
-			<265 0>,
-			<275 0>;
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1";
+		bootargs = "sched_enable_hmp=1 androidboot.rpmdevice=290000.qcom,rpm-stats-ver";
 	};
 
 	aliases {
@@ -43,10 +37,9 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		spi0 = &spi_0; /* SPI0 controller device */
-		 i2c5 = &i2c_5; /* I2c5 cntroller device */
+		i2c5 = &i2c_5; /* I2c5 cntroller device */
 		i2c3 = &i2c_3; /* I2C3 controller */
 		i2c1 = &i2c_1; /* I2C1 controller */
-		i2c2 = &i2c_2; /* I2C2 NFC qup2 device */
 		i2c4 = &i2c_4; /* I2C4 controller device */
 	};
 
@@ -82,6 +75,14 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		tzapps_mem: tzapps_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x87a00000 0x0 0x200000>;
+			label = "tzapps_mem";
+		};
+
 		external_image_mem: external_image__region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
@@ -94,7 +95,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x88000000 0x0 0x05500000>;
+			reg = <0x0 0x88000000 0x0 0x04e00000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -102,27 +103,28 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8d500000 0x0 0x0500000>;
+			reg = <0x0 0x8da00000 0x0 0x0500000>;
 			label = "peripheral_mem";
 		};
 
 		venus_qseecom_mem: venus_qseecom_region@0 {
 			linux,reserve-contiguous-region;
-			linux,memory-limit = <0x90000000>;
-			reg = <0 0 0 0x600000>;
+			linux,reserve-region;
+			reg = <0x0 0x8ec00000 0x0 0x600000>;
 			label = "venus_qseecom_mem";
 		};
 
 		audio_mem: audio_region@0 {
 			linux,reserve-contiguous-region;
-			reg = <0 0 0 0x314000>;
+			linux,reserve-region;
+			reg = <0 0 0 0x400000>;
 			label = "audio_mem";
 		};
 
-		cont_splash_mem: splash_region@83000000 {
+		cont_splash_mem: splash_region@A0000000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
-			reg = <0x0 0x83000000 0x0 0xc00000>;
+			reg = <0x0 0xA0000000 0x0 0xc00000>;
 			label = "cont_splash_mem";
 		};
 	};
@@ -142,6 +144,7 @@
 #include "msm8909-bus.dtsi"
 #include "msm8909-mdss.dtsi"
 #include "msm8909-mdss-pll.dtsi"
+#include "msm-pm8909-vreg-dump.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -291,7 +294,7 @@
 
 	cpubw: qcom,cpubw {
 		compatible = "qcom,devbw";
-		governor = "cpufreq";
+		governor = "bw_hwmon";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
@@ -448,9 +451,9 @@
 		qcom,freq-control-mask = <0xf>;
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0xe>;
-		qcom,hotplug-temp = <97>;
-		qcom,hotplug-temp-hysteresis = <12>;
+		qcom,core-control-mask = <0xc>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
 				"tsens_tz_sensor3", "tsens_tz_sensor4";
 		qcom,freq-mitigation-temp = <97>;
@@ -822,12 +825,18 @@
 		HSUSB_3p3-supply = <&pm8909_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 
-		qcom,hsusb-otg-phy-init-seq = <0x73 0x80 0xffffffff>;
+		qcom,hsusb-otg-phy-init-seq = <0x33 0x80 0x33 0x81 0x07 0x82 0x13 0x83 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
 		qcom,dp-manual-pullup;
 		qcom,hsusb-otg-disable-reset;
+/*++ 2015/02/10, USB team, PCN00064 ++*/
+		pinctrl-names = "usbid_default_init", "usb_adc_sel_init";
+		pinctrl-0 = <&usbid_default>;
+		pinctrl-1 = <&adc_sel_default>;
+/*-- 2015/02/10, USB team, PCN00064 --*/
+		qcom,usb_id-vadc = <&pm8909_vadc>;
 		qcom,phy-dvdd-always-on;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
@@ -1028,6 +1037,7 @@
 		qcom,clk-rates = <400000 25000000 50000000 100000000 177770000>;
 
 		status = "disabled";
+		htc,slot-type = <0>;
 	};
 
 	sdhc_2: sdhci@07864000 {
@@ -1062,21 +1072,23 @@
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
 
 		status = "disabled";
+		htc,slot-type = <1>;
 	};
 
 	qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
-		reg = <0xb017000 0x1000>;
-		reg-names = "wdt-base";
+		reg = <0xb017000 0x1000>, <0x4a3000 0x1000>;
+		reg-names = "wdt-base", "mpm-clock-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <18000>;
+		qcom,pet-time = <8000>;
 		qcom,ipi-ping;
 	};
 
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
-		qcom,rtb-size = <0x100000>; /* 1M EBI1 buffer */
+		reg = <0x8E100000 0x100000>;
+		reg-names = "msm_rtb_res";
 	};
 
 	qcom,msm-imem@8600000 {
@@ -1146,31 +1158,6 @@
 		qcom,summing-threshold = <10>;
 	};
 
-	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "qup_phys_addr";
-		reg = <0x78b6000 0x1000>;
-		interrupt-names = "qup_irq";
-		interrupts = <0 96 0>;
-		qcom,clk-freq-out = <400000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
-
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_2_active>;
-		pinctrl-1 = <&i2c_2_sleep>;
-		qcom,noise-rjct-scl = <0>;
-		qcom,noise-rjct-sda = <0>;
-		dmas = <&dma_blsp1 6 64 0x20000020 0x20>,
-			<&dma_blsp1 7 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-		qcom,master-id = <86>;
-	};
-
 	i2c_4: i2c@78b8000 { /* BLSP1 QUP4 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
@@ -1206,7 +1193,7 @@
                clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
                         <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
                clock-names = "iface_clk", "core_clk";
-               qcom,clk-freq-out = <100000>;
+               qcom,clk-freq-out = <400000>;
                qcom,clk-freq-in  = <19200000>;
                pinctrl-names = "i2c_active", "i2c_sleep";
                pinctrl-0 = <&i2c_5_active>;
@@ -1254,7 +1241,7 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 		         <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_1_active>;

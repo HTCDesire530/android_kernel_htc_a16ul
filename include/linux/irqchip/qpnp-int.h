@@ -80,6 +80,10 @@ int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 int qpnpint_show_irq(struct spmi_controller *spmi_ctrl,
 		       struct qpnp_irq_spec *spec);
 
+#ifdef CONFIG_HTC_POWER_DEBUG
+int qpnpint_check_irq_wake(struct qpnp_irq_spec *spec);
+#endif
+
 #ifdef CONFIG_MSM_SHOW_RESUME_IRQ
 extern int msm_show_resume_irq_mask;
 static inline bool qpnpint_show_resume_irq(void)

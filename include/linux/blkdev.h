@@ -20,6 +20,7 @@
 #include <linux/bsg.h>
 #include <linux/smp.h>
 #include <linux/rcupdate.h>
+#include <linux/ktime.h>
 
 #include <asm/scatterlist.h>
 
@@ -104,6 +105,10 @@ struct request {
 	unsigned long atomic_flags;
 
 	int cpu;
+
+	ktime_t         enter_time;     /* when this req has been established */
+	ktime_t         process_time;   /* when this req has been sent to device */
+	pid_t pid;      /* from which pid? */
 
 	/* the following two fields are internal, NEVER access directly */
 	unsigned int __data_len;	/* total data len */

@@ -78,4 +78,4 @@ static inline int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 }
 #endif
 
-#endif /* MDSS_MDP_DEBUG_H */
+#endif 

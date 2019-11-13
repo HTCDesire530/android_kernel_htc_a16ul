@@ -2876,19 +2876,57 @@ bool flush_work(struct work_struct *work)
 }
 EXPORT_SYMBOL_GPL(flush_work);
 
+struct cwt_wait {
+	wait_queue_t		wait;
+	struct work_struct	*work;
+};
+
+static int cwt_wakefn(wait_queue_t *wait, unsigned mode, int sync, void *key)
+{
+	struct cwt_wait *cwait = container_of(wait, struct cwt_wait, wait);
+
+	if (cwait->work != key)
+		return 0;
+	return autoremove_wake_function(wait, mode, sync, key);
+}
+
 static bool __cancel_work_timer(struct work_struct *work, bool is_dwork)
 {
+	static DECLARE_WAIT_QUEUE_HEAD(cancel_waitq);
 	unsigned long flags;
 	int ret;
 
 	do {
 		ret = try_to_grab_pending(work, is_dwork, &flags);
 		/*
-		 * If someone else is canceling, wait for the same event it
-		 * would be waiting for before retrying.
+		 * If someone else is already canceling, wait for it to
+		 * finish.  flush_work() doesn't work for PREEMPT_NONE
+		 * because we may get scheduled between @work's completion
+		 * and the other canceling task resuming and clearing
+		 * CANCELING - flush_work() will return false immediately
+		 * as @work is no longer busy, try_to_grab_pending() will
+		 * return -ENOENT as @work is still being canceled and the
+		 * other canceling task won't be able to clear CANCELING as
+		 * we're hogging the CPU.
+		 *
+		 * Let's wait for completion using a waitqueue.  As this
+		 * may lead to the thundering herd problem, use a custom
+		 * wake function which matches @work along with exclusive
+		 * wait and wakeup.
 		 */
-		if (unlikely(ret == -ENOENT))
-			flush_work(work);
+		if (unlikely(ret == -ENOENT)) {
+			struct cwt_wait cwait;
+
+			init_wait(&cwait.wait);
+			cwait.wait.func = cwt_wakefn;
+			cwait.work = work;
+
+			prepare_to_wait_exclusive(&cancel_waitq, &cwait.wait,
+						  TASK_UNINTERRUPTIBLE);
+			if (work_is_canceling(work))
+				schedule();
+			finish_wait(&cancel_waitq, &cwait.wait);
+		}
 	} while (unlikely(ret < 0));
 
 	/* tell other tasks trying to grab @work to back off */
@@ -2897,6 +2935,16 @@ static bool __cancel_work_timer(struct work_struct *work, bool is_dwork)
 
 	flush_work(work);
 	clear_work_data(work);
+
+	/*
+	 * Paired with prepare_to_wait() above so that either
+	 * waitqueue_active() is visible here or !work_is_canceling() is
+	 * visible there.
+	 */
+	smp_mb();
+	if (waitqueue_active(&cancel_waitq))
+		__wake_up(&cancel_waitq, TASK_NORMAL, 1, work);
+
 	return ret;
 }
 
@@ -4986,6 +5034,34 @@ static void __init wq_numa_init(void)
 	wq_numa_possible_cpumask = tbl;
 	wq_numa_enabled = true;
 }
+
+#if defined(CONFIG_HTC_DEBUG_WORKQUEUE)
+
+#define for_each_cpu_worker_pool_pri(pool, cpu, pri)			\
+	for ((pool) = &per_cpu(cpu_worker_pools, cpu)[0], pri = 0;		\
+	     (pool) < &per_cpu(cpu_worker_pools, cpu)[NR_STD_WORKER_POOLS]; \
+	     (pool)++, pri++)
+
+void workqueue_show_pending_work(void)
+{
+	unsigned int cpu;
+	struct worker_pool *pool;
+	struct work_struct *work;
+	bool highpri;
+	const char *pri;
+
+	for_each_online_cpu(cpu) {
+		for_each_cpu_worker_pool_pri(pool, cpu, highpri) {
+			pri = (highpri > 0) ? "(H)" : "";
+
+			list_for_each_entry(work, &pool->worklist, entry) {
+				printk("CPU%d pending work %s: %pf\n", cpu, pri, work->func);
+			}
+		}
+	}
+}
+
+#endif /* CONFIG_HTC_DEBUG_WORKQUEUE */
 
 static int __init init_workqueues(void)
 {

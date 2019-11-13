@@ -67,6 +67,9 @@ struct snd_msm {
 #define CMD_EOS_MIN_TIMEOUT_LENGTH  50
 #define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
 
+int g_perf_mode = LEGACY_PCM_MODE;
+bool g_ultra_low_latency_supported = false;
+
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -111,7 +114,6 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 	.fifo_size =            0,
 };
 
-/* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000,
 	88200, 96000, 176400, 192000
@@ -186,7 +188,7 @@ static void event_handler(uint32_t opcode,
 		pr_debug("token = 0x%08x\n", token);
 		in_frame_info[token][0] = payload[4];
 		in_frame_info[token][1] = payload[5];
-		/* assume data size = 0 during flushing */
+		
 		if (in_frame_info[token][0]) {
 			prtd->pcm_irq_pos += in_frame_info[token][0];
 			pr_debug("pcm_irq_pos=%d\n", prtd->pcm_irq_pos);
@@ -297,17 +299,21 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	}
 	params = &soc_prtd->dpcm[substream->stream].hw_params;
 
-	pr_debug("%s\n", __func__);
+	pr_info("%s g_perf_mode = %d\n", __func__, g_perf_mode);
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-	/* rate and channels are sent to audio driver */
+	
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 	if (prtd->enabled)
 		return 0;
 
-	prtd->audio_client->perf_mode = pdata->perf_mode;
+	
+	if (prtd->audio_client->perf_mode == LOW_LATENCY_PCM_MODE ||
+			prtd->audio_client->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
+		prtd->audio_client->perf_mode = g_perf_mode;
+	
 	pr_debug("%s: perf: %x\n", __func__, pdata->perf_mode);
 
 	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
@@ -416,7 +422,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-	/* rate and channels are sent to audio driver */
+	
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 
@@ -471,7 +477,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			ret = q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 			break;
 		}
-		/* pending CMD_EOS isn't expected */
+		
 		WARN_ON_ONCE(test_bit(CMD_EOS, &prtd->cmd_pending));
 		set_bit(CMD_EOS, &prtd->cmd_pending);
 		ret = q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
@@ -520,7 +526,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		runtime->hw = msm_pcm_hardware_playback;
 
-	/* Capture path */
+	
 	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		runtime->hw = msm_pcm_hardware_capture;
 	else {
@@ -533,7 +539,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 				&constraints_sample_rates);
 	if (ret < 0)
 		pr_info("snd_pcm_hw_constraint_list failed\n");
-	/* Ensure that buffer size is a multiple of period size */
+	
 	ret = snd_pcm_hw_constraint_integer(runtime,
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
@@ -669,7 +675,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	if (prtd->audio_client) {
 		dir = IN;
 
-		/* determine timeout length */
+		
 		if (runtime->frame_bits == 0 || runtime->rate == 0) {
 			timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
 		} else {
@@ -897,7 +903,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (buf == NULL || buf[0].data == NULL)
 		return -ENOMEM;
 
-	pr_debug("%s:buf = %p\n", __func__, buf);
+	pr_info("%s:buf = %p perf_mode = %d\n", __func__, buf, params->reserved[0]);
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
@@ -906,6 +912,14 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->bytes = params_buffer_bytes(params);
 	if (!dma_buf->area)
 		return -ENOMEM;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if(g_perf_mode != LEGACY_PCM_MODE) {
+			if (params->reserved[0] == 1)
+				g_perf_mode = LOW_LATENCY_PCM_MODE;
+			if (params->reserved[0] == 2 && g_ultra_low_latency_supported)
+				g_perf_mode = ULTRA_LOW_LATENCY_PCM_MODE;
+		}
+	}
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	return 0;
@@ -1053,7 +1067,7 @@ static int msm_pcm_chmap_ctl_get(struct snd_kcontrol *kcontrol,
 	memset(ucontrol->value.integer.value, 0,
 		sizeof(ucontrol->value.integer.value));
 	if (!substream->runtime)
-		return 0; /* no channels set */
+		return 0; 
 
 	prtd = substream->runtime->private_data;
 
@@ -1230,15 +1244,17 @@ static int msm_pcm_probe(struct platform_device *pdev)
 		rc = of_property_read_string(pdev->dev.of_node,
 			"qcom,latency-level", &latency_level);
 		if (!rc) {
-			if (!strcmp(latency_level, "ultra"))
+			if (!strcmp(latency_level, "ultra")) {
 				pdata->perf_mode = ULTRA_LOW_LATENCY_PCM_MODE;
+				g_ultra_low_latency_supported = true; 
+			}
 		}
+		g_perf_mode = pdata->perf_mode;
 	}
 	else
 		pdata->perf_mode = LEGACY_PCM_MODE;
 
 	dev_set_drvdata(&pdev->dev, pdata);
-
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n",
 				__func__, dev_name(&pdev->dev));

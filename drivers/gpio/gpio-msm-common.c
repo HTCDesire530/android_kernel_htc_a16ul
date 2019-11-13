@@ -390,7 +390,9 @@ void msm_gpio_show_resume_irq(void)
 				name = "stray irq";
 			else if (desc->action && desc->action->name)
 				name = desc->action->name;
-
+#ifdef CONFIG_HTC_POWER_DEBUG
+                        pr_info("[WAKEUP] Resume caused by msmgpio-%d\n", i);
+#endif
 			pr_warning("%s: %d triggered %s\n",
 					__func__, irq, name);
 		}

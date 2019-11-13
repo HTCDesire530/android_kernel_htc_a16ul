@@ -90,6 +90,7 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
+	BL_I2C,
 	UNKNOWN_CTRL,
 };
 
@@ -276,6 +277,14 @@ struct panel_horizontal_idle {
 	int idle;
 };
 
+/* HTC: board-specific hook */
+struct mdss_dsi_pwrctrl {
+	int (*dsi_regulator_init) (struct platform_device *pdev);
+	int (*dsi_regulator_deinit) (struct platform_device *pdev);
+	int (*dsi_power_on) (struct mdss_panel_data *pdata, int enable);
+	void (*dsi_panel_reset) (struct mdss_panel_data *pdata, int enable);
+};
+
 enum {
 	DSI_CTRL_0,
 	DSI_CTRL_1,
@@ -418,6 +427,18 @@ struct mdss_dsi_ctrl_pdata {
 	int horizontal_idle_cnt;
 	struct panel_horizontal_idle *line_idle;
 	struct mdss_util_intf *mdss_util;
+
+	/* HTC: board-specific data/hook */
+	void *dsi_pwrctrl_data;
+
+	int pwm_min;
+	int pwm_default;
+	int pwm_max;
+
+	struct dsi_panel_cmds cabc_off_cmds;
+	struct dsi_panel_cmds cabc_ui_cmds;
+	struct dsi_panel_cmds cabc_video_cmds;
+	struct dsi_panel_cmds dimming_on_cmds;
 };
 
 struct dsi_status_data {

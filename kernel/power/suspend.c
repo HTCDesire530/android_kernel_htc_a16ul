@@ -30,6 +30,10 @@
 
 #include "power.h"
 
+static struct delayed_work suspend_monitor_debug_work;
+static int suspend_monitor_debug_count = 0;
+static int suspend_monitor_debug_init = 0;
+
 const char *const pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_FREEZE]	= "freeze",
 	[PM_SUSPEND_STANDBY]	= "standby",
@@ -124,6 +128,18 @@ static int suspend_test(int level)
 	return 0;
 }
 
+static void suspend_monitor_debug(struct work_struct *work)
+{
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+	printk("suspend prepare monitor count = %d\n", suspend_monitor_debug_count);
+	if (suspend_monitor_debug_count > 5) {
+		BUG_ON(1);
+	} else {
+		suspend_monitor_debug_count++;
+		schedule_delayed_work(&suspend_monitor_debug_work, msecs_to_jiffies(5000));
+	}
+}
+
 /**
  * suspend_prepare - Prepare for entering system sleep state.
  *
@@ -135,12 +151,22 @@ static int suspend_prepare(suspend_state_t state)
 {
 	int error;
 
+	if (suspend_monitor_debug_init == 0) {
+		INIT_DELAYED_WORK(&suspend_monitor_debug_work, suspend_monitor_debug);
+		suspend_monitor_debug_init++;
+	}
+
 	if (need_suspend_ops(state) && (!suspend_ops || !suspend_ops->enter))
 		return -EPERM;
 
+	printk("Start to monitor suspend prepare time\n");
+	schedule_delayed_work(&suspend_monitor_debug_work, msecs_to_jiffies(5000));
 	pm_prepare_console();
 
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
+	cancel_delayed_work_sync(&suspend_monitor_debug_work);
+	suspend_monitor_debug_count = 0;
+
 	if (error)
 		goto Finish;
 
@@ -334,10 +360,7 @@ static int enter_state(suspend_state_t state)
 	if (state == PM_SUSPEND_FREEZE)
 		freeze_begin();
 
-	printk(KERN_INFO "PM: Syncing filesystems ... ");
-	sys_sync();
-	printk("done.\n");
-
+	suspend_sys_sync_queue();
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);
 	if (error)

@@ -140,7 +140,6 @@ struct vidc_iface_q_info {
 	struct vidc_mem_addr q_array;
 };
 
-/* Internal data used in vidc_hal not exposed to msm_vidc*/
 
 struct hal_data {
 	u32 irq;
@@ -205,6 +204,8 @@ struct venus_hfi_device {
 	enum venus_hfi_state state;
 	struct hfi_packetization_ops *pkt_ops;
 	enum hfi_packetization_type packetization_type;
+    struct msm_vidc_inst *inst;
+    
 };
 
 void venus_hfi_delete_device(void *device);

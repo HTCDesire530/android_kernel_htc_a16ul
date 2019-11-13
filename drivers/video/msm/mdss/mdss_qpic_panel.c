@@ -41,7 +41,6 @@ u32 qpic_panel_get_framerate(void)
 	return panel_refresh_rate;
 }
 
-/* write a frame of pixels to a MIPI screen */
 u32 qpic_send_frame(u32 x_start,
 				u32 y_start,
 				u32 x_end,
@@ -56,13 +55,13 @@ u32 qpic_send_frame(u32 x_start,
 	u32 start_8_15;
 	u32 end_8_15;
 
-	/* convert to 16 bit representation */
+	
 	x_start = x_start & 0xffff;
 	y_start = y_start & 0xffff;
 	x_end = x_end & 0xffff;
 	y_end = y_end & 0xffff;
 
-	/* set column/page */
+	
 	start_0_7 = x_start & 0xff;
 	end_0_7 = x_end & 0xff;
 	start_8_15 = (x_start >> 8) & 0xff;
@@ -231,12 +230,12 @@ static int mdss_qpic_panel_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	/* select panel according to label */
+	
 	if (panel_name && !strcmp(panel_name, "ili qvga lcdc panel")) {
 		qpic_panel_on = ili9341_on;
 		qpic_panel_off = ili9341_off;
 	} else {
-		/* select default panel driver */
+		
 		pr_info("%s: select default panel driver\n", __func__);
 		qpic_panel_on = ili9341_on;
 		qpic_panel_off = ili9341_off;

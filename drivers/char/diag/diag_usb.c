@@ -157,7 +157,7 @@ static void usb_read_work_fn(struct work_struct *work)
 		return;
 
 	if (!ch->connected || !ch->enabled || ch->read_pending) {
-		pr_debug_ratelimited("diag: Discarding USB read, ch: %s connected: %d, enabled: %d, pending: %d\n",
+		DIAG_DBUG("diag: Discarding USB read, ch: %s connected: %d, enabled: %d, pending: %d\n",
 				     ch->name, ch->connected, ch->enabled,
 				     ch->read_pending);
 		return;
@@ -194,6 +194,15 @@ static void usb_read_done_work_fn(struct work_struct *work)
 	req = ch->read_ptr;
 	ch->read_cnt++;
 
+#if DIAG_XPST && !defined(CONFIG_DIAGFWD_BRIDGE_CODE)
+       if (driver->nohdlc) {
+               req->buf = ch->read_buf;
+               req->length = USB_MAX_OUT_BUF;
+               usb_diag_read(ch->hdl, req);
+               return;
+       }
+#endif
+
 	if (ch->ops && ch->ops->read_done && req->status >= 0)
 		ch->ops->read_done(req->buf, req->actual, ch->ctxt);
 }
@@ -208,6 +217,10 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 
 	ch->write_cnt++;
 	ctxt = (int)(uintptr_t)req->context;
+	if (!ctxt){
+		pr_info("[DIAG] %s: ctxt is fail!!\n",__func__);
+		return;
+	}
 	if (ch->ops && ch->ops->write_done)
 		ch->ops->write_done(req->buf, req->actual, ctxt, DIAG_USB_MODE);
 	diagmem_free(driver, req, ch->mempool);
@@ -304,7 +317,7 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 	req->context = (void *)(uintptr_t)ctxt;
 
 	if (!usb_info->hdl || !usb_info->connected) {
-		pr_debug_ratelimited("diag: USB ch %s is not connected\n",
+		DIAG_DBUG("diag: USB ch %s is not connected\n",
 				     usb_info->name);
 		diagmem_free(driver, req, usb_info->mempool);
 		return -ENODEV;
@@ -397,7 +410,7 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 		goto err;
 	}
 	ch->enabled = 1;
-	pr_debug("diag: Successfully registered USB %s\n", ch->name);
+	DIAG_DBUG("diag: Successfully registered USB %s\n", ch->name);
 	return 0;
 
 err:

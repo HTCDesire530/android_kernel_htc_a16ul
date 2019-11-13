@@ -997,6 +997,26 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 
 	switch (reg_cfg_cmd->cmd_type) {
 	case VFE_WRITE: {
+                if (reg_cfg_cmd->u.rw_info.reg_offset <
+                        resource_size(vfe_dev->vfe_mem)) {
+                        uint32_t diff = 0;
+                        diff = resource_size(vfe_dev->vfe_mem) -
+                                reg_cfg_cmd->u.rw_info.reg_offset;
+                        if (diff < reg_cfg_cmd->u.rw_info.len) {
+                                pr_err("%s: VFE_WRITE: Invalid length\n",
+                                        __func__);
+                                return -EINVAL;
+                        }
+                } else {
+                        pr_err("%s: VFE_WRITE: Invalid length\n", __func__);
+                        return -EINVAL;
+                }
+                if (resource_size(vfe_dev->vfe_mem) <
+                        (reg_cfg_cmd->u.rw_info.reg_offset +
+                        reg_cfg_cmd->u.rw_info.len)) {
+                        pr_err("%s: VFE_WRITE: Invalid length\n", __func__);
+                        return -EINVAL;
+                }
 		msm_camera_io_memcpy(vfe_dev->vfe_base +
 			reg_cfg_cmd->u.rw_info.reg_offset,
 			cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4,
@@ -1840,6 +1860,9 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
 	vfe_dev->bus_util_factor = 0;
+	vfe_dev->fullsize_stats = 0;
+	vfe_dev->stats_hnum = 0;
+	vfe_dev->stats_vnum = 0;
 	rc = of_property_read_u32(vfe_dev->pdev->dev.of_node,
 			"bus-util-factor", &vfe_dev->bus_util_factor);
 	if (rc < 0)

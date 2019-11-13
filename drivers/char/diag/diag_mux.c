@@ -128,9 +128,19 @@ int diag_mux_switch_logging(int new_mode)
 
 	switch (new_mode) {
 	case DIAG_USB_MODE:
+/*++ 2014/09/18, USB Team, PCN00002 ++*/
+		DIAG_INFO("sdlogging disable\n");
+/*-- 2014/09/18, USB Team, PCN00002 --*/
+		driver->qxdm2sd_drop = 1;	/*++ 2015/02/02, USB Team, PCN00002 ++*/
+
 		new_logger = &usb_logger;
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
+/*++ 2014/09/18, USB Team, PCN00002 ++*/
+		DIAG_INFO("sdlogging enable\n");
+/*-- 2014/09/18, USB Team, PCN00002 --*/
+		driver->qxdm2sd_drop = 0;	/*++ 2015/02/02, USB Team, PCN00002 ++*/
+
 		new_logger = &md_logger;
 		break;
 	default:

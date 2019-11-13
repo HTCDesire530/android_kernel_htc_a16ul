@@ -44,7 +44,6 @@ static void qpic_interrupt_en(u32 en);
 
 struct qpic_data_type *qpic_res;
 
-/* for debugging */
 static u32 use_bam = true;
 static u32 use_irq = true;
 static u32 use_vsync;
@@ -60,9 +59,6 @@ static struct platform_driver mdss_qpic_driver = {
 	.remove = mdss_qpic_remove,
 	.shutdown = NULL,
 	.driver = {
-		/*
-		 * Simulate mdp hw
-		 */
 		.name = "mdp",
 		.of_match_table = mdss_qpic_dt_match,
 	},
@@ -269,7 +265,7 @@ int qpic_init_sps(struct platform_device *pdev,
 		goto free_endpoint;
 	}
 
-	/* WRITE CASE: source - system memory; destination - BAM */
+	
 	sps_config->source = SPS_DEV_HANDLE_MEM;
 	sps_config->destination = bam_handle;
 	sps_config->mode = SPS_MODE_DEST;
@@ -277,12 +273,6 @@ int qpic_init_sps(struct platform_device *pdev,
 
 	sps_config->options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	sps_config->lock_group = 0;
-	/*
-	 * Descriptor FIFO is a cyclic FIFO. If 64 descriptors
-	 * are allowed to be submitted before we get any ack for any of them,
-	 * the descriptor FIFO size should be: (SPS_MAX_DESC_NUM + 1) *
-	 * sizeof(struct sps_iovec).
-	 */
 	sps_config->desc.size = (64) *
 					sizeof(struct sps_iovec);
 	sps_config->desc.base = dmam_alloc_coherent(&pdev->dev,
@@ -331,7 +321,7 @@ void mdss_qpic_reset(void)
 	u32 time_end;
 
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_RESET, 1 << 0);
-	/* wait 100 us after reset as suggested by hw */
+	
 	usleep(100);
 	time_end = (u32)ktime_to_ms(ktime_get()) +
 		QPIC_MAX_VSYNC_WAIT_TIME;
@@ -340,7 +330,7 @@ void mdss_qpic_reset(void)
 			pr_err("%s reset not finished", __func__);
 			break;
 		}
-		/* yield 100 us for next polling by experiment*/
+		
 		usleep(100);
 	}
 }
@@ -467,7 +457,7 @@ static int qpic_wait_for_fifo(void)
 			data &= 0x3F;
 			if (data == 0)
 				break;
-			/* yield 10 us for next polling by experiment*/
+			
 			usleep(10);
 			if (ktime_to_ms(ktime_get()) > time_end) {
 				pr_err("%s time out", __func__);
@@ -505,7 +495,7 @@ static int qpic_wait_for_eof(void)
 			data = QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS);
 			if (data & (1 << 2))
 				break;
-			/* yield 10 us for next polling by experiment*/
+			
 			usleep(10);
 			if (ktime_to_ms(ktime_get()) > time_end) {
 				pr_err("%s wait for eof time out\n", __func__);
@@ -523,7 +513,7 @@ static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
 	u32 bytes_left, space, data, cfg2;
 	int i, ret = 0;
 	if (len <= 4) {
-		len = (len + 3) / 4; /* len in dwords */
+		len = (len + 3) / 4; 
 		data = 0;
 		if (param) {
 			for (i = 0; i < len; i++)
@@ -543,7 +533,7 @@ static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
 	cfg2 = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
 	if ((cmd != OP_WRITE_MEMORY_START) &&
 		(cmd != OP_WRITE_MEMORY_CONTINUE))
-		cfg2 |= (1 << 24); /* transparent mode */
+		cfg2 |= (1 << 24); 
 	else
 		cfg2 &= ~(1 << 24);
 
@@ -561,7 +551,7 @@ static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
 		space = 16;
 
 		while ((space > 0) && (bytes_left > 0)) {
-			/* write to fifo */
+			
 			if (bytes_left >= 4) {
 				QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_DATA_PORT0,
 					*(u32 *)param);
@@ -575,7 +565,7 @@ static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
 			}
 		}
 	}
-	/* finished */
+	
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_EOF, 0x0);
 	ret = qpic_wait_for_eof();
 exit_send_cmd_sw:
@@ -601,13 +591,13 @@ int mdss_qpic_init(void)
 
 	pr_info("%s version=%x", __func__, QPIC_INP(QPIC_REG_LCDC_VERSION));
 	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CTRL);
-	/* clear vsync wait , bam mode = 0*/
+	
 	data &= ~(3 << 0);
 	data &= ~(0x1f << 3);
-	data |= (1 << 3); /* threshold */
-	data |= (1 << 8); /* lcd_en */
+	data |= (1 << 3); 
+	data |= (1 << 8); 
 	data &= ~(0x1f << 9);
-	data |= (1 << 9); /* threshold */
+	data |= (1 << 9); 
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CTRL, data);
 
 	if (use_irq && (!qpic_res->irq_requested)) {
@@ -628,7 +618,7 @@ int mdss_qpic_init(void)
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG0, 0x02108501);
 	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
 	data &= ~(0xFFF);
-	data |= 0x200; /* XRGB */
+	data |= 0x200; 
 	data |= 0x2C;
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, data);
 
@@ -638,7 +628,7 @@ int mdss_qpic_init(void)
 		data |= (1 << 1);
 		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CTRL, data);
 	}
-	/* TE enable */
+	
 	if (use_vsync) {
 		data = QPIC_INP(QPIC_REG_QPIC_LCDC_CTRL);
 		data |= (1 << 0);

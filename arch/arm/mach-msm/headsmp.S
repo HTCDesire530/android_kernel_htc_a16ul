@@ -9,6 +9,9 @@
  */
 #include <linux/linkage.h>
 #include <linux/init.h>
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+#include <htc_debug/mnemosyne/htc_footprint.h>
+#endif
 
 	.arm
 
@@ -26,6 +29,30 @@ THUMB(	adr	r9, BSYM(2f)	)	@ Kernel is always entered in ARM.
 THUMB(	bx	r9		)	@ If this is a Thumb-2 kernel,
 THUMB(	.thumb			)	@ switch to Thumb now.
 THUMB(2:			)
+
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	MPIDR2INDEX	r0, r4
+	VIRT2PHYS	r7, mnemosyne_phys, msm_secondary_startup, r4
+	ldr		r7, [r7]					/* Store mnemosyne_phys in x1 */
+
+	cmp	r7, #0
+	beq	skip_footprint						/* If phys is NULL, skip it */
+
+	MNEMOSYNE_GET_ADDR_I r4, r7, kernel_exit_counter_from_cpu, r0
+
+	ldr	r5, [r4]
+	add	r5, r5, #1
+	str	r5, [r4]
+	dsb	sy
+
+	MNEMOSYNE_GET_ADDR_I r4, r7, kernel_footprint_cpu, r0
+	ldr	r5, =0x05						/* write footprint 5, only the lowest byte */
+	strb	r5, [r4]
+	dsb	sy
+
+	skip_footprint:
+#endif
+
 	mrc	p15, 0, r0, c0, c0, 5 	@ MPIDR
 	bic     r0, #0xff000000         @ What CPU am I
 	adr	r4, 1f			@ address of

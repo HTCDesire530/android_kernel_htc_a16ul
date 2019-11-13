@@ -71,7 +71,12 @@
 #include <linux/qcom/usb_trace.h>
 
 #include "ci13xxx_udc.h"
-
+/*++ 2014/05/16, USB Team,  PCN00011 ++*/
+#include <mach/devices_cmdline.h>
+/*-- 2014/05/16, USB Team,  PCN00011 --*/
+/*++ 2014/08/15, USB Team,  PCN00038 ++*/
+#include <mach/htc_battery_common.h>
+/*-- 2014/08/15, USB Team,  PCN00038 --*/
 /******************************************************************************
  * DEFINE
  *****************************************************************************/
@@ -82,7 +87,9 @@
 
 /* ctrl register bank access */
 static DEFINE_SPINLOCK(udc_lock);
-
+/*++ 2014/05/16, USB Team,  PCN00011 ++*/
+extern int msm_otg_usb_disable;
+/*-- 2014/05/16, USB Team,  PCN00011 --*/
 /* control endpoint description */
 static const struct usb_endpoint_descriptor
 ctrl_endpt_out_desc = {
@@ -318,7 +325,7 @@ static int hw_device_init(void __iomem *base)
 
 	if (hw_ep_max == 0 || hw_ep_max > ENDPT_MAX)
 		return -ENODEV;
-
+	printk(KERN_WARNING "[USB] EP num %d\n",hw_ep_max);
 	/* setup lock mode ? */
 
 	/* ENDPTSETUPSTAT is '0' by default */
@@ -1980,6 +1987,14 @@ out:
 
 }
 
+/*++ 2014/08/15, USB Team,  PCN00038 ++*/
+static void usb_chg_stop(struct work_struct *w)
+{
+	USB_INFO("disable charger\n");
+	htc_battery_pwrsrc_disable();
+}
+/*-- 2014/08/15, USB Team,  PCN00038 --*/
+
 /**
  * _hardware_queue: configures a request at hardware level
  * @gadget: gadget
@@ -2438,7 +2453,7 @@ __acquires(mEp->lock)
  *
  * This function returns an error code
  */
-static int _gadget_stop_activity(struct usb_gadget *gadget)
+static int _gadget_stop_activity(struct usb_gadget *gadget, int mute)
 {
 	struct ci13xxx    *udc = container_of(gadget, struct ci13xxx, gadget);
 	unsigned long flags;
@@ -2461,7 +2476,10 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
 
-	udc->driver->disconnect(gadget);
+	if (mute)
+		udc->driver->mute_disconnect(gadget);
+	else
+		udc->driver->disconnect(gadget);
 
 	spin_lock_irqsave(udc->lock, flags);
 	_ep_nuke(&udc->ep0out);
@@ -2517,7 +2535,7 @@ __acquires(udc->lock)
 	if (udc->transceiver)
 		usb_phy_set_power(udc->transceiver, 100);
 
-	retval = _gadget_stop_activity(&udc->gadget);
+	retval = _gadget_stop_activity(&udc->gadget, 1);
 	if (retval)
 		goto done;
 
@@ -2976,6 +2994,10 @@ __acquires(udc->lock)
 					case TEST_K:
 					case TEST_SE0_NAK:
 					case TEST_PACKET:
+/*++ 2014/08/15, USB Team,  PCN00038 ++*/
+						if (!udc->test_mode)
+							schedule_delayed_work(&udc->chg_stop, 0);
+/*-- 2014/08/15, USB Team,  PCN00038 --*/
 					case TEST_FORCE_EN:
 						udc->test_mode = tmode;
 						err = isr_setup_status_phase(
@@ -3568,6 +3590,22 @@ static void ep_fifo_flush(struct usb_ep *ep)
 	spin_unlock_irqrestore(mEp->lock, flags);
 }
 
+/*++ 2014/09/01, USB Team,  PCN00033 ++*/
+/*
+ * ep_nuke: dequeues all request binding on endpoint
+ */
+static void ep_nuke(struct usb_ep *ep)
+{
+	struct ci13xxx_ep *mEp = container_of(ep, struct ci13xxx_ep, ep);
+	struct ci13xxx *udc = _udc;
+	unsigned long flags;
+
+	spin_lock_irqsave(udc->lock, flags);
+	_ep_nuke(mEp);
+	spin_unlock_irqrestore(udc->lock, flags);
+}
+/*-- 2014/09/01, USB Team,  PCN00033 --*/
+
 /**
  * Endpoint-specific part of the API to the USB controller hardware
  * Check "usb_gadget.h" for details
@@ -3582,6 +3620,9 @@ static const struct usb_ep_ops usb_ep_ops = {
 	.set_halt      = ep_set_halt,
 	.set_wedge     = ep_set_wedge,
 	.fifo_flush    = ep_fifo_flush,
+/*++ 2014/09/01, USB Team,  PCN00033 ++*/
+	.nuke	       = ep_nuke,
+/*-- 2014/09/01, USB Team,  PCN00033 --*/
 };
 
 /******************************************************************************
@@ -3613,7 +3654,7 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 				hw_device_state(udc->ep0out.qh.dma);
 		} else {
 			hw_device_state(0);
-			_gadget_stop_activity(&udc->gadget);
+			_gadget_stop_activity(&udc->gadget,0);
 			if (udc->udc_driver->notify_event)
 				udc->udc_driver->notify_event(udc,
 					CI13XXX_CONTROLLER_DISCONNECT_EVENT);
@@ -3679,6 +3720,7 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 		hw_device_state(udc->ep0out.qh.dma);
 	} else {
 		hw_device_state(0);
+		_gadget_stop_activity(&udc->gadget, 1);
 	}
 
 	return 0;
@@ -3825,7 +3867,7 @@ static int ci13xxx_stop(struct usb_gadget *gadget,
 			udc->vbus_active) {
 		hw_device_state(0);
 		spin_unlock_irqrestore(udc->lock, flags);
-		_gadget_stop_activity(&udc->gadget);
+		_gadget_stop_activity(&udc->gadget, 0);
 		spin_lock_irqsave(udc->lock, flags);
 		pm_runtime_put(&udc->gadget.dev);
 	}
@@ -3882,11 +3924,29 @@ static irqreturn_t udc_irq(void)
 
 		/* order defines priority - do NOT change it */
 		if (USBi_URI & intr) {
+/*++ 2014/04/18, USB Team, PCN00003 ++*/
+			USB_INFO("reset\n");
+/*-- 2014/04/18, USB Team, PCN00003 --*/
 			isr_statistics.uri++;
 			if (!hw_cread(CAP_PORTSC, PORTSC_PR))
 				pr_info("%s: USB reset interrupt is delayed\n",
-								__func__);
+						__func__);
+/*++ 2014/05/16, USB Team, PCN00011 ++*/
+			/* offmode_charging*/
+			/* FIXME */
+			if (/*board_mfg_mode() == 5 ||*/ msm_otg_usb_disable) {
+				USB_INFO("Offmode / QuickBootMode\n");
+				spin_unlock(udc->lock);
+				if (udc->transceiver)
+					udc->transceiver->notify_usb_disabled();
+				spin_lock(udc->lock);
+			}
+/*-- 2014/05/16, USB Team, PCN00011 --*/
 			isr_reset_handler(udc);
+/*++ 2014/04/18, USB Team, PCN00003 ++*/
+			if (udc->transceiver)
+				udc->transceiver->notify_usb_attached(NULL);
+/*-- 2014/04/18, USB Team, PCN00003 --*/
 		}
 		if (USBi_PCI & intr) {
 			isr_statistics.pci++;
@@ -3982,6 +4042,9 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	}
 
 	INIT_DELAYED_WORK(&udc->rw_work, usb_do_remote_wakeup);
+/*++ 2014/08/15, USB Team,  PCN00038 ++*/
+	INIT_DELAYED_WORK(&udc->chg_stop, usb_chg_stop);
+/*-- 2014/08/15, USB Team,  PCN00038 --*/
 
 	retval = hw_device_init(regs);
 	if (retval < 0)
@@ -4081,9 +4144,10 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 
 	_udc = udc;
 	return retval;
-
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
 del_udc:
 	usb_del_gadget_udc(&udc->gadget);
+#endif
 remove_trans:
 	if (udc->transceiver)
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);

@@ -475,7 +475,7 @@ static int camera_v4l2_fh_open(struct file *filep)
 	stream_id = atomic_read(&pvdev->opened);
 	sp->stream_id = find_first_zero_bit(
 		(const unsigned long *)&stream_id, MSM_CAMERA_STREAM_CNT_BITS);
-	pr_debug("%s: Found stream_id=%d\n", __func__, sp->stream_id);
+	printk("%s: Found stream_id=%d\n", __func__, sp->stream_id);
 
 	v4l2_fh_init(&sp->fh, pvdev->vdev);
 	v4l2_fh_add(&sp->fh);
@@ -547,6 +547,7 @@ static int camera_v4l2_open(struct file *filep)
 	}
 
 	opn_idx = atomic_read(&pvdev->opened);
+        printk("%s : open opn_idx=%d\n",__func__, opn_idx);
 	idx = opn_idx;
 	/* every stream has a vb2 queue */
 	rc = camera_v4l2_vb2_q_init(filep);
@@ -609,6 +610,7 @@ static int camera_v4l2_open(struct file *filep)
 	}
 	idx |= (1 << find_first_zero_bit((const unsigned long *)&opn_idx,
 				MSM_CAMERA_STREAM_CNT_BITS));
+        printk("%s: open idx=%d\n",__func__, idx);
 	atomic_cmpxchg(&pvdev->opened, opn_idx, idx);
 
 	return rc;
@@ -651,11 +653,12 @@ static int camera_v4l2_close(struct file *filep)
 	BUG_ON(!pvdev);
 
 	opn_idx = atomic_read(&pvdev->opened);
-	pr_debug("%s: close stream_id=%d\n", __func__, sp->stream_id);
+	printk("%s: close stream_id=%d, opn_idx=%d\n", __func__, sp->stream_id, opn_idx);
 	mask = (1 << sp->stream_id);
 	opn_idx &= ~mask;
 	atomic_set(&pvdev->opened, opn_idx);
 
+        printk("%s: close opn_idx =%d\n",__func__, atomic_read(&pvdev->opened));
 	if (atomic_read(&pvdev->opened) == 0) {
 
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,

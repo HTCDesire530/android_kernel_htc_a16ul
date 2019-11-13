@@ -2379,6 +2379,8 @@ source "drivers/Kconfig"
 
 source "fs/Kconfig"
 
+source "arch/arm/Kconfig.htc"
+
 source "arch/arm/Kconfig.debug"
 
 source "security/Kconfig"

@@ -473,4 +473,12 @@ struct snd_codec {
 	__u32 reserved[3];
 };
 
+//HTC_AUD++
+struct dsp_effect_param {
+       uint32_t effect_type; /* 0 for POPP, 1 for COPP */
+       uint32_t module_id;
+       uint32_t param_id;
+       uint32_t payload_size;
+};
+//HTC_AUD--
 #endif

@@ -138,6 +138,30 @@ config OV9724
 		hfr video at 60, 90 and 120 fps. This sensor driver does
 		not support auto focus.
 
+config OV8858_HTC
+	bool "Sensor OV8858 (BAYER 8M)"
+	depends on MSMB_CAMERA
+	---help---
+	Support for OV8858_HTC sensor driver.
+
+config OV2680_HTC
+	bool "Sensor OV2680 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+	Support for OV2680_HTC sensor driver.
+
+config OV2680_XDnCA_htc
+	bool "Sensor OV2680 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+	Support for OV2680_XDnCA_htc sensor driver.
+
+config S5K5E_HTC
+	bool "Sensor S5K5E (BAYER 5M)"
+	depends on MSMB_CAMERA
+	---help---
+	Support for S5K5E_HTC sensor driver.
+
 config HI256
         bool "Hynix hi256 (YUV 2MP)"
         depends on MSMB_CAMERA

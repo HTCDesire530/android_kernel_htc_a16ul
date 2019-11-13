@@ -568,7 +568,16 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_SENSOR_CFG:
 #ifdef CONFIG_COMPAT
 		if (is_compat_task())
-			rc = s_ctrl->func_tbl->sensor_config32(s_ctrl, argp);
+		//HTC_CAM_START
+		#if 0
+				rc = s_ctrl->func_tbl->sensor_config32(s_ctrl, argp);
+		#else
+		{
+			if(s_ctrl->func_tbl->sensor_config32)
+				rc = s_ctrl->func_tbl->sensor_config32(s_ctrl, argp);
+        }
+        #endif
+		//HTC_CAM_END
 		else
 #endif
 			rc = s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
@@ -606,8 +615,15 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 	return video_usercopy(file, cmd, arg, msm_sensor_subdev_do_ioctl);
 }
 
+//HTC_CAM_START
+#if 0
 static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
+#else
+int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
+    void __user *argp)
+#endif
+//HTC_CAM_END
 {
 	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
 	int32_t rc = 0;
@@ -926,6 +942,15 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		break;
 	}
+/* HTC_START, HTC_VCM, Harvey 20130628 - Porting read OTP*/
+	case CFG_I2C_IOCTL_R_OTP:
+		if (s_ctrl->func_tbl->sensor_i2c_read_fuseid32 == NULL) {
+			rc = -EFAULT;
+			break;
+		}
+		rc = s_ctrl->func_tbl->sensor_i2c_read_fuseid32(cdata, s_ctrl);
+	break;
+/* HTC_END, HTC_VCM*/
 
 	default:
 		rc = -EFAULT;
@@ -1314,6 +1339,15 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 		break;
 	}
+/* HTC_START, HTC_VCM, Harvey 20130628 - Porting read OTP*/
+	case CFG_I2C_IOCTL_R_OTP:
+		if (s_ctrl->func_tbl->sensor_i2c_read_fuseid == NULL) {
+			rc = -EFAULT;
+			break;
+		}
+		rc = s_ctrl->func_tbl->sensor_i2c_read_fuseid(cdata, s_ctrl);
+	break;
+/* HTC_END, HTC_VCM*/
 	default:
 		rc = -EFAULT;
 		break;
@@ -1444,6 +1478,9 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 		s_ctrl->sensordata->slave_info->sensor_slave_addr >> 1;
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
+	/*HTC_START*/
+	cci_client->i2c_freq_mode = I2C_FAST_MODE;
+	/*HTC_END*/
 	if (!s_ctrl->func_tbl)
 		s_ctrl->func_tbl = &msm_sensor_func_tbl;
 	if (!s_ctrl->sensor_i2c_client->i2c_func_tbl)
@@ -1711,3 +1748,51 @@ FREE_CCI_CLIENT:
 	kfree(cci_client);
 	return rc;
 }
+
+/*HTC_START*/
+#include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/vmalloc.h>
+#include <asm/segment.h>
+#include <asm/uaccess.h>
+#include <linux/buffer_head.h>
+
+void msm_fclose(struct file* file) {
+    filp_close(file, NULL);
+}
+
+int msm_fwrite(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
+    mm_segment_t oldfs;
+    int ret;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+
+    ret = vfs_write(file, data, size, &offset);
+
+    set_fs(oldfs);
+    return ret;
+}
+
+struct file* msm_fopen(const char* path, int flags, int rights) {
+    struct file* filp = NULL;
+    mm_segment_t oldfs;
+    int err = 0;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+    filp = filp_open(path, flags, rights);
+    set_fs(oldfs);
+    if(IS_ERR(filp)) {
+        err = PTR_ERR(filp);
+    pr_err("[CAM]File Open Error:%s",path);
+        return NULL;
+    }
+    if(!filp->f_op){
+    pr_err("[CAM]File Operation Method Error!!");
+    return NULL;
+    }
+
+    return filp;
+}
+/*HTC_END*/

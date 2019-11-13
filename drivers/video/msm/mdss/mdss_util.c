@@ -98,7 +98,6 @@ void mdss_disable_irq(struct mdss_hw *hw)
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
 }
 
-/* called from interrupt context */
 void mdss_disable_irq_nosync(struct mdss_hw *hw)
 {
 	u32 ndx_bit;

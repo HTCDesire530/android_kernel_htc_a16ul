@@ -299,8 +299,7 @@ int mdp3_dma_sync_config(struct mdp3_dma *dma,
 
 static int mdp3_dmap_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
-			struct mdp3_dma_output_config *output_config,
-			bool splash_screen_active)
+			struct mdp3_dma_output_config *output_config)
 {
 	u32 dma_p_cfg_reg, dma_p_size, dma_p_out_xy;
 
@@ -316,17 +315,14 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 
 	dma_p_size = source_config->width | (source_config->height << 16);
 	dma_p_out_xy = source_config->x | (source_config->y << 16);
-	if (!splash_screen_active) {
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR,
-			       (u32)source_config->buf);
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE,
-			       source_config->stride);
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_OUT_XY, dma_p_out_xy);
 
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x40);
-	}
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)source_config->buf);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE, source_config->stride);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_OUT_XY, dma_p_out_xy);
+
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x40);
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
@@ -358,8 +354,7 @@ static void mdp3_dmap_config_source(struct mdp3_dma *dma)
 
 static int mdp3_dmas_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
-			struct mdp3_dma_output_config *output_config,
-			bool splash_screen_active)
+			struct mdp3_dma_output_config *output_config)
 {
 	u32 dma_s_cfg_reg, dma_s_size, dma_s_out_xy;
 
@@ -376,17 +371,14 @@ static int mdp3_dmas_config(struct mdp3_dma *dma,
 	dma_s_size = source_config->width | (source_config->height << 16);
 	dma_s_out_xy = source_config->x | (source_config->y << 16);
 
-	if (!splash_screen_active) {
-		MDP3_REG_WRITE(MDP3_REG_DMA_S_CONFIG, dma_s_cfg_reg);
-		MDP3_REG_WRITE(MDP3_REG_DMA_S_SIZE, dma_s_size);
-		MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR,
-			       (u32)source_config->buf);
-		MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_Y_STRIDE,
-			       source_config->stride);
-		MDP3_REG_WRITE(MDP3_REG_DMA_S_OUT_XY, dma_s_out_xy);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_CONFIG, dma_s_cfg_reg);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_SIZE, dma_s_size);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR, (u32)source_config->buf);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_Y_STRIDE, source_config->stride);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_OUT_XY, dma_s_out_xy);
 
-		MDP3_REG_WRITE(MDP3_REG_SECONDARY_RD_PTR_IRQ, 0x10);
-	}
+	MDP3_REG_WRITE(MDP3_REG_SECONDARY_RD_PTR_IRQ, 0x10);
+
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
 
@@ -513,12 +505,6 @@ static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
 		cc_config |= dma->ccs_config.post_bias_sel << 7;
 		cc_config |= dma->ccs_config.pre_limit_sel << 8;
 		cc_config |= dma->ccs_config.post_limit_sel << 9;
-		/*
-		 * CCS dirty flag should be reset when call is made from frame
-		 * kickoff, or else upon resume the flag would be dirty and LUT
-		 * config could call this function thereby causing no register
-		 * programming for CCS, which will cause screen to go dark
-		 */
 		if (from_kickoff)
 			dma->ccs_config.ccs_dirty = false;
 		ccs_updated = true;
@@ -544,10 +530,6 @@ static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
 
 	if (lut_updated || ccs_updated) {
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
-		/*
-		 * Make sure ccs configuration update is done before continuing
-		 * with the DMA transfer
-		 */
 		wmb();
 	}
 }
@@ -954,10 +936,6 @@ bool mdp3_dmap_busy(void)
 	return val & MDP3_DMA_P_BUSY_BIT;
 }
 
-/*
- * During underrun DMA_P registers are reset. Reprogramming CSC to prevent
- * black screen
- */
 static void mdp3_dmap_underrun_worker(struct work_struct *work)
 {
 	struct mdp3_dma *dma;
